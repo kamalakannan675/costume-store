@@ -722,6 +722,83 @@ class OnlineDeploymentTestCase(unittest.TestCase):
         finally:
             os.environ.pop('VERCEL', None)
 
+    # --------------------------------------------------------------------------
+    # 25. HEALTH CHECK SCHEMA & CATALOGUE READINESS
+    # --------------------------------------------------------------------------
+    def test_25_health_check_distinguishes_schema_readiness(self):
+        """Verify /health returns detailed readiness checks, table count, and catalogue status."""
+        res = self.client.get('/health')
+        self.assertEqual(res.status_code, 200)
+        data = json.loads(res.data)
+        self.assertEqual(data.get('status'), 'healthy')
+        self.assertEqual(data.get('database'), 'connected')
+        checks = data.get('checks', {})
+        self.assertTrue(checks.get('schema_initialized'))
+        self.assertTrue(checks.get('catalogue_ready'))
+        self.assertGreaterEqual(checks.get('table_count', 0), 17)
+        self.assertGreaterEqual(checks.get('categories_count', 0), 32)
+        self.assertGreaterEqual(checks.get('active_products_count', 0), 26)
+
+    # --------------------------------------------------------------------------
+    # 26. MAINTENANCE INIT ENDPOINT SECURITY
+    # --------------------------------------------------------------------------
+    def test_26_maintenance_init_endpoint_security(self):
+        """Verify /api/maintenance/init-database enforces secret authorization."""
+        # Unauthenticated request -> 401 Unauthorized
+        res_unauth = self.client.post('/api/maintenance/init-database')
+        self.assertEqual(res_unauth.status_code, 401)
+
+        # Invalid secret -> 401 Unauthorized
+        res_invalid = self.client.post(
+            '/api/maintenance/init-database',
+            headers={'X-Maintenance-Secret': 'wrong-secret-token'}
+        )
+        self.assertEqual(res_invalid.status_code, 401)
+
+        # Valid secret -> 200 OK
+        valid_secret = app.config['SECRET_KEY']
+        res_valid = self.client.post(
+            '/api/maintenance/init-database',
+            headers={'X-Maintenance-Secret': valid_secret}
+        )
+        self.assertEqual(res_valid.status_code, 200)
+        resp_json = json.loads(res_valid.data)
+        self.assertEqual(resp_json.get('status'), 'success')
+        self.assertGreaterEqual(resp_json.get('counts', {}).get('categories'), 32)
+        self.assertGreaterEqual(resp_json.get('counts', {}).get('active_products'), 26)
+
+    # --------------------------------------------------------------------------
+    # 27. CATALOGUE IMPORTER SAFETY REFUSAL ON OFFLINE DATABASE
+    # --------------------------------------------------------------------------
+    def test_27_import_catalogue_safety_refusal(self):
+        """Verify import_catalogue refuses to run against offline SQLite database."""
+        from scripts.import_catalogue import validate_target_url_safety
+        offline_uri = "sqlite:///D:/Projects/Costume-sales/instance/costume_store.db"
+        with self.assertRaises(RuntimeError) as cm:
+            validate_target_url_safety(offline_uri)
+        self.assertIn("Refusing to run import against offline SQLite database", str(cm.exception))
+
+    # --------------------------------------------------------------------------
+    # 28. REPEATED CATALOGUE IMPORT IDEMPOTENCY
+    # --------------------------------------------------------------------------
+    def test_28_repeated_catalogue_import_idempotency(self):
+        """Verify repeated execution of seed_database() preserves exact entity counts."""
+        from scripts.seed_database import seed_database
+        from models import Category, Product, ProductVariant, Coupon
+
+        cat_count_1 = Category.query.count()
+        prod_count_1 = Product.query.count()
+        var_count_1 = ProductVariant.query.count()
+        coup_count_1 = Coupon.query.count()
+
+        # Re-run seed_database()
+        seed_database()
+
+        self.assertEqual(Category.query.count(), cat_count_1)
+        self.assertEqual(Product.query.count(), prod_count_1)
+        self.assertEqual(ProductVariant.query.count(), var_count_1)
+        self.assertEqual(Coupon.query.count(), coup_count_1)
+
 
 if __name__ == '__main__':
     unittest.main()

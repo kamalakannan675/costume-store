@@ -23,7 +23,7 @@ This document details all environment variables supported by the Costume Store a
 | Variable Name | Required | Default | Description | Example / Recommendations |
 | :--- | :---: | :---: | :--- | :--- |
 | `DATABASE_URL` | **Yes** | *(None)* | Neon PostgreSQL connection string. Uses `-pooler` endpoint. | `postgresql://neondb_owner:pwd@ep-xyz-pooler.region.aws.neon.tech/neondb?sslmode=require` |
-| `AUTO_CREATE_TABLES`| No | `False` | Whether application startup executes `db.create_all()` automatically. | `False` (Recommended to use `import_catalogue.py`) |
+| `AUTO_CREATE_TABLES`| No | `False` | When True, initializes schema tables and approved catalogue on startup. | `False` (Set to `true` for one-time initialization) |
 
 ---
 

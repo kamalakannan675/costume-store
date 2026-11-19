@@ -226,6 +226,16 @@ def sync_admin_from_env(application=None):
 
     admin_password = (raw_password or '').strip()
 
+    # Verify if 'user' table exists before attempting to query it
+    try:
+        inspector = inspect(db.engine)
+        if 'user' not in inspector.get_table_names():
+            app.logger.info("Admin synchronization deferred: 'user' table does not exist yet in database.")
+            return None
+    except Exception as e:
+        app.logger.debug(f"Inspector check error in sync_admin_from_env: {e}")
+        return None
+
     # Find existing verified administrator
     existing_admin = User.query.filter_by(is_admin=True).first()
 
@@ -610,22 +620,35 @@ def inject_globals():
         cart_count = sum(item.get('quantity', 0) for item in session['costume_cart'].values())
 
     wishlist_count = 0
-    curr_user = get_current_user()
-    if curr_user:
-        wishlist_count = Wishlist.query.filter_by(user_id=curr_user.id).count()
-
-    nav_categories = Category.query.filter_by(
-        parent_id=None, is_active=True, is_visible_on_storefront=True
-    ).order_by(Category.display_order).all()
-
+    curr_user = None
+    nav_categories = []
     store_settings = {
-        'name': StoreSetting.get('store_name', 'COSTUME STORE'),
-        'tagline': StoreSetting.get('tagline', 'Premium Costumes, Cosplay & Theatrical Sales'),
-        'phone': StoreSetting.get('contact_phone', '+91 98765 43210'),
-        'email': StoreSetting.get('contact_email', 'support@costumestore.com'),
-        'address': StoreSetting.get('address', '45 Heritage Boulevard, Fashion District, Bengaluru'),
-        'cod_enabled': StoreSetting.get('cod_enabled', 'true') == 'true'
+        'name': 'COSTUME STORE',
+        'tagline': 'Authentic Indian Traditional Clothing & Festive Costumes',
+        'phone': '+91 98765 43210',
+        'email': 'support@costumestore.com',
+        'address': '45 Heritage Boulevard, Fashion District, Bengaluru, Karnataka 560001',
+        'currency_symbol': '₹',
+        'cod_enabled': True
     }
+
+    try:
+        curr_user = get_current_user()
+        if curr_user:
+            wishlist_count = Wishlist.query.filter_by(user_id=curr_user.id).count()
+
+        nav_categories = Category.query.filter_by(
+            parent_id=None, is_active=True, is_visible_on_storefront=True
+        ).order_by(Category.display_order).all()
+
+        store_settings['name'] = StoreSetting.get('store_name', 'COSTUME STORE')
+        store_settings['tagline'] = StoreSetting.get('tagline', 'Authentic Indian Traditional Clothing & Festive Costumes')
+        store_settings['phone'] = StoreSetting.get('contact_phone', '+91 98765 43210')
+        store_settings['email'] = StoreSetting.get('contact_email', 'support@costumestore.com')
+        store_settings['address'] = StoreSetting.get('address', '45 Heritage Boulevard, Fashion District, Bengaluru')
+        store_settings['cod_enabled'] = StoreSetting.get('cod_enabled', 'true') == 'true'
+    except Exception as e:
+        app.logger.debug(f"Context processor database read notice: {e}")
 
     return {
         'cart_count': cart_count,
@@ -3304,25 +3327,147 @@ def api_variant_stock():
     })
 
 
+REQUIRED_APPLICATION_TABLES = [
+    'user', 'address', 'category', 'costume_product', 'product_image',
+    'product_variant', 'coupon', 'orders', 'order_status_log', 'otp_token',
+    'order_item', 'wishlist', 'product_review', 'store_setting',
+    'payment_transaction', 'contact_message', 'inventory_restock_log'
+]
+
+
 @app.route('/health', methods=['GET'])
 def health_check():
-    """Health check endpoint for Vercel, load-balancers, and monitoring."""
-    status = {
-        'status': 'healthy',
-        'service': 'COSTUME STORE E-Commerce',
-        'timestamp': datetime.utcnow().isoformat()
+    """
+    Health check endpoint for Vercel, load-balancers, and monitoring.
+    Distinguishes database connectivity, schema readiness, and catalogue readiness.
+    Never exposes internal database credentials, passwords, or connection strings.
+    """
+    now_iso = datetime.utcnow().isoformat()
+    checks = {
+        'database_connection': 'disconnected',
+        'schema_initialized': False,
+        'catalogue_ready': False,
+        'table_count': 0,
+        'categories_count': 0,
+        'active_products_count': 0
     }
-    db_ok = True
+
+    # 1. Test database connection
     try:
         db.session.execute(text('SELECT 1'))
-        status['database'] = 'connected'
+        checks['database_connection'] = 'connected'
+    except Exception:
+        return jsonify({
+            'status': 'unhealthy',
+            'service': 'COSTUME STORE E-Commerce',
+            'timestamp': now_iso,
+            'database': 'disconnected',
+            'checks': checks
+        }), 503
+
+    # 2. Check schema readiness (verify all 17 required tables exist)
+    try:
+        inspector = inspect(db.engine)
+        existing_tables = set(inspector.get_table_names())
+        checks['table_count'] = len(existing_tables)
+        missing_tables = [t for t in REQUIRED_APPLICATION_TABLES if t not in existing_tables]
+        checks['schema_initialized'] = (len(missing_tables) == 0)
+        if missing_tables:
+            checks['missing_tables'] = missing_tables
+    except Exception:
+        checks['schema_initialized'] = False
+
+    # 3. Check catalogue readiness (categories and active products)
+    if checks['schema_initialized']:
+        try:
+            prod_count = Product.query.filter_by(is_active=True).count()
+            cat_count = Category.query.count()
+            checks['active_products_count'] = prod_count
+            checks['categories_count'] = cat_count
+            checks['catalogue_ready'] = (prod_count >= 26 and cat_count >= 32)
+        except Exception:
+            checks['catalogue_ready'] = False
+
+    # Determine overall status and HTTP response code
+    is_ready = (
+        checks['database_connection'] == 'connected' and
+        checks['schema_initialized'] and
+        checks['catalogue_ready']
+    )
+
+    status_str = 'healthy' if is_ready else 'degraded_schema_missing'
+    http_code = 200 if is_ready else 503
+
+    return jsonify({
+        'status': status_str,
+        'database': 'connected',
+        'service': 'COSTUME STORE E-Commerce',
+        'timestamp': now_iso,
+        'checks': checks
+    }), http_code
+
+
+@app.route('/api/maintenance/init-database', methods=['POST'])
+def maintenance_init_database():
+    """
+    Secure maintenance endpoint to initialize database schema and seed catalogue.
+    Requires header 'X-Maintenance-Secret' matching FLASK_SECRET_KEY.
+    Idempotent and safe to execute repeatedly without duplicating data.
+    Never alters, drops, or deletes existing data.
+    """
+    secret = app.config.get('SECRET_KEY', '').strip()
+    provided_secret = request.headers.get('X-Maintenance-Secret', '').strip()
+    if not provided_secret:
+        provided_secret = request.args.get('secret', '').strip()
+
+    if not secret or len(secret) < 16 or provided_secret != secret:
+        return jsonify({
+            'status': 'error',
+            'message': 'Unauthorized. Provide valid X-Maintenance-Secret header.'
+        }), 401
+
+    try:
+        from scripts.seed_database import seed_database
+
+        # 1. Create all 17 schema tables
+        db.create_all()
+
+        # 2. Seed approved 26-product catalogue (idempotent)
+        seed_database()
+
+        # 3. Synchronize administrator if configured
+        sync_admin_from_env(app)
+
+        # 4. Verified counts
+        cat_count = Category.query.count()
+        prod_count = Product.query.filter_by(is_active=True).count()
+        var_count = ProductVariant.query.filter_by(is_active=True).count()
+        img_count = ProductImage.query.count()
+        coup_count = Coupon.query.count()
+        set_count = StoreSetting.query.count()
+        admin_user = User.query.filter_by(is_admin=True).first()
+
+        return jsonify({
+            'status': 'success',
+            'message': 'Database schema and catalogue initialized successfully.',
+            'timestamp': datetime.utcnow().isoformat(),
+            'counts': {
+                'categories': cat_count,
+                'active_products': prod_count,
+                'variants': var_count,
+                'images': img_count,
+                'coupons': coup_count,
+                'store_settings': set_count,
+                'admin_provisioned': admin_user is not None
+            }
+        }), 200
     except Exception as e:
-        db_ok = False
-        status['database'] = f'error: {str(e)}'
-        status['status'] = 'unhealthy'
-    
-    code = 200 if db_ok else 503
-    return jsonify(status), code
+        app.logger.error(f"Maintenance database initialization error: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Database initialization failed.',
+            'error_type': type(e).__name__
+        }), 500
 
 
 # ------------------------------------------------------------------------------
@@ -3332,8 +3477,8 @@ def health_check():
 def init_application_database(application):
     """
     Initialize database schema and sync administrator safely.
-    In production, catalogue import is explicitly decoupled and executed via scripts/import_catalogue.py.
     In development mode, schema tables and approved catalogue are seeded if empty.
+    In production mode, if AUTO_CREATE_TABLES=true, schema tables and approved catalogue are seeded idempotently.
     """
     is_prod = (
         os.environ.get('FLASK_ENV', '').lower() == 'production' or
@@ -3361,11 +3506,16 @@ def init_application_database(application):
             except Exception as e:
                 application.logger.warning(f"Development catalogue initialization note: {e}")
         else:
-            # Production mode: create schema if explicitly enabled or run via migration
+            # Production mode: create schema and seed catalogue if explicitly enabled via AUTO_CREATE_TABLES
             from config import parse_bool
             if parse_bool(os.environ.get('AUTO_CREATE_TABLES'), default=False):
                 try:
                     db.create_all()
+                    from models import Category
+                    if Category.query.count() == 0:
+                        from scripts.seed_database import seed_database
+                        seed_database()
+                        application.logger.info("Production database schema and catalogue successfully seeded via AUTO_CREATE_TABLES.")
                 except Exception as e:
                     application.logger.warning(f"Production AUTO_CREATE_TABLES notice: {e}")
 

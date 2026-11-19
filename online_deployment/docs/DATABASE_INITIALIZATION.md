@@ -1,77 +1,152 @@
-# Costume Store — Neon Database Initialisation & Catalogue Import Guide
+# Costume Store — Neon Database Initialization & Catalogue Import Guide
 
-How to initialize database schema and populate the approved 26-product Indian traditional attire catalogue into Neon PostgreSQL.
+How to initialize database schema, populate the approved 26-product Indian traditional attire catalogue, and provision administrator access in Neon PostgreSQL.
 
 ---
 
 ## 1. Safety Architecture
 
-- **Completely Decoupled from Web Requests**: In serverless architectures like Vercel, running database initialisation during web requests is dangerous because it can cause request timeouts, cold-start delays, and concurrent migration race conditions.
-- **Explicit CLI Invocation**: The import utility requires the `--confirm` flag to execute writes.
-- **Strict Privacy**: Does not import test users, customer personal data, historical orders, or test reviews.
-- **Idempotent**: Safe to run repeatedly without creating duplicate products or categories.
+- **Completely Decoupled from Web Traffic by Default**: Automatic schema creation on every serverless invocation is disabled by default to prevent latency and race conditions.
+- **Idempotent**: Safe to run repeatedly without creating duplicate products, variants, or categories.
+- **Strict Privacy**: Does not import customer accounts, customer addresses, orders, or transactions.
+- **Offline Protection**: Strictly validates that operations never target or modify the offline SQLite database (`instance/costume_store.db`).
+- **Credential Masking**: Automatically masks database passwords and connection strings in all logs and console output.
 
 ---
 
-## 2. One-Time Execution Procedure
+## 2. Supported Execution Methods
 
-Execute the import script from your local development machine pointing directly to your Neon database.
+### Method 1: Local / CI CLI Execution (Recommended)
 
-> [!IMPORTANT]
-> **Avoid exposing passwords in shell history.** Instead of passing the connection string as a command-line argument, set it as a session environment variable (`TARGET_DATABASE_URL`).
+Set the connection string as a temporary session environment variable (`TARGET_DATABASE_URL`) to avoid exposing credentials in shell history.
 
-### Linux / macOS (Bash / Zsh):
-```bash
-# 1. Export the protected environment variable for the session
-export TARGET_DATABASE_URL="postgresql://neondb_owner:YourPassword@ep-xyz-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
-
-# 2. Run the decoupled migration script with confirmation
-python scripts/import_catalogue.py --confirm
-
-# 3. Clean up the environment variable
-unset TARGET_DATABASE_URL
-```
-
-### Windows (PowerShell):
+#### Windows (PowerShell):
 ```powershell
-# 1. Set the environment variable for the current PowerShell session
-$env:TARGET_DATABASE_URL="postgresql://neondb_owner:YourPassword@ep-xyz-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+# 1. Set the environment variable for the current session
+$env:TARGET_DATABASE_URL="postgresql://neondb_owner:YourPassword@ep-xyz-pooler.region.aws.neon.tech/neondb?sslmode=require"
 
-# 2. Run the decoupled migration script with confirmation
+# 2. Inspect target database without writing (Dry Run)
+python scripts/import_catalogue.py --check
+
+# 3. Execute schema creation and catalogue import
 python scripts/import_catalogue.py --confirm
 
-# 3. Clean up the environment variable
+# 4. Clean up session environment variable
 Remove-Item Env:\TARGET_DATABASE_URL
 ```
 
-### What Happens:
-1. **Schema Generation**: SQLAlchemy executes `db.create_all()` against Neon PostgreSQL to create all 17 relational tables.
-2. **Category Population**: Imports 32 categories (storefront and dormant).
-3. **Product & Variant Population**: Imports the 26 approved traditional Indian products and their 97 size/colour variants.
-4. **Gallery Images**: Links all 26 primary product image paths.
-5. **Coupons & Settings**: Configures 4 discount coupons and 10 default store settings.
+#### Linux / macOS (Bash / Zsh):
+```bash
+# 1. Export the environment variable for the session
+export TARGET_DATABASE_URL="postgresql://neondb_owner:YourPassword@ep-xyz-pooler.region.aws.neon.tech/neondb?sslmode=require"
+
+# 2. Inspect target database without writing (Dry Run)
+python scripts/import_catalogue.py --check
+
+# 3. Execute schema creation and catalogue import
+python scripts/import_catalogue.py --confirm
+
+# 4. Clean up session environment variable
+unset TARGET_DATABASE_URL
+```
 
 ---
 
-## 3. Post-Import Verification
+### Method 2: Automatic One-Time Startup Initialization (Vercel Console)
 
-The script automatically reports verified database counts upon completion:
+If you prefer Vercel to initialize Neon directly on deployment:
 
-| Entity | Verified Count |
-| :--- | :---: |
-| Storefront Categories | **32** |
-| Active Products | **26** |
-| Product Variants | **97** |
-| Primary Image Records | **26** |
-| Active Coupons | **4** |
-| Store Settings | **10** |
-| User Accounts | **0** (or 1 if admin configured) |
-| Orders | **0** |
+1. Open your project on the [Vercel Dashboard](https://vercel.com/).
+2. Navigate to **Settings** → **Environment Variables**.
+3. Add or update:
+   - `AUTO_CREATE_TABLES` = `true`
+4. Redeploy or trigger any request (e.g., `GET https://costume-store-beryl.vercel.app/health`).
+5. Vercel executes `db.create_all()` and seeds the 26-product catalogue and store settings on initial boot.
+6. Once `/health` reports `status: "healthy"`, you can safely set `AUTO_CREATE_TABLES` = `false`.
 
 ---
 
-## 4. Troubleshooting Neon Connectivity
+### Method 3: Remote Maintenance API (One-Click HTTP)
 
-- **SSL Required**: Ensure `?sslmode=require` is present at the end of the connection string.
-- **PgBouncer Pooling**: Always use the `-pooler` hostname provided in the Neon console.
-- **Firewall**: Neon databases accept connections over port 5432 with standard SSL encryption.
+If your application is already deployed on Vercel with `FLASK_SECRET_KEY` configured:
+
+Execute a secure POST request to the maintenance endpoint:
+```bash
+curl -X POST https://costume-store-beryl.vercel.app/api/maintenance/init-database \
+     -H "X-Maintenance-Secret: YOUR_FLASK_SECRET_KEY"
+```
+
+Response payload:
+```json
+{
+  "status": "success",
+  "message": "Database schema and catalogue initialized successfully.",
+  "counts": {
+    "categories": 32,
+    "active_products": 26,
+    "variants": 97,
+    "images": 26,
+    "coupons": 4,
+    "store_settings": 10,
+    "admin_provisioned": true
+  }
+}
+```
+
+---
+
+## 3. Verified Post-Import State
+
+Upon completion, the Neon database contains:
+
+| Entity | Target Verified Count | Description |
+| :--- | :---: | :--- |
+| **Relational Tables** | **17** | All SQLAlchemy models mapped |
+| **Storefront Categories** | **32** | 4 primary roots + 28 subcategories |
+| **Active Products** | **26** | Authentic Indian traditional attire catalogue |
+| **Product Variants** | **97** | Sizes, colours, and inventory counts |
+| **Gallery Images** | **26** | Root-relative edge CDN image paths |
+| **Discount Coupons** | **4** | Active festive discount codes |
+| **Store Settings** | **10** | Default store branding and policies |
+| **User Accounts** | **1** | Primary administrator (if configured in env) |
+| **Customer Orders** | **0** | Clean production state |
+
+---
+
+## 4. Verification Endpoint
+
+Query the readiness check:
+```bash
+curl https://costume-store-beryl.vercel.app/health
+```
+When fully initialized, the endpoint returns **HTTP 200 OK**:
+```json
+{
+  "service": "COSTUME STORE E-Commerce",
+  "status": "healthy",
+  "database": "connected",
+  "checks": {
+    "database_connection": "connected",
+    "schema_initialized": true,
+    "catalogue_ready": true,
+    "table_count": 17,
+    "categories_count": 32,
+    "active_products_count": 26
+  }
+}
+```
+If schema tables are missing, the endpoint returns **HTTP 503**:
+```json
+{
+  "service": "COSTUME STORE E-Commerce",
+  "status": "degraded_schema_missing",
+  "database": "connected",
+  "checks": {
+    "database_connection": "connected",
+    "schema_initialized": false,
+    "catalogue_ready": false,
+    "table_count": 0,
+    "missing_tables": ["user", "address", "category", "..."]
+  }
+}
+```
