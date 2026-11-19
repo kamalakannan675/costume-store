@@ -1,0 +1,104 @@
+{% extends 'admin/base.html' %}
+
+{% block page_title %}Orders & Fulfillment Management{% endblock %}
+
+{% block admin_content %}
+<div class="admin-card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:14px;">
+    <div>
+      <h3 style="font-size:1.25rem;margin:0;">Costume Sales Orders ({{ pagination.total }})</h3>
+      <span style="font-size:0.85rem;color:var(--admin-muted);">Manage order statuses, courier tracking numbers, and delivery dispatch.</span>
+    </div>
+  </div>
+
+  <!-- Status Filter Pills -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;">
+    {% set all_statuses = ['Pending', 'Confirmed', 'Processing', 'Shipped', 'Out for Delivery', 'Delivered', 'Cancelled'] %}
+    <a href="{{ url_for('admin_orders', search=search) }}" class="btn-admin {% if not status_filter %}btn-admin-primary{% else %}btn-admin-secondary{% endif %}" style="padding:6px 14px;font-size:0.8rem;">
+      All Orders
+    </a>
+    {% for st in all_statuses %}
+      <a href="{{ url_for('admin_orders', status=st, search=search) }}" class="btn-admin {% if status_filter == st %}btn-admin-primary{% else %}btn-admin-secondary{% endif %}" style="padding:6px 14px;font-size:0.8rem;">
+        {{ st }}
+      </a>
+    {% endfor %}
+  </div>
+
+  <!-- Search Input -->
+  <form action="{{ url_for('admin_orders') }}" method="GET" style="display:flex;gap:12px;margin-bottom:24px;">
+    <input type="text" name="search" value="{{ search or '' }}" placeholder="Search by Order #, Customer Name, or Email..." style="flex:1;padding:10px 14px;border:1px solid var(--admin-border);border-radius:6px;outline:none;font-size:0.9rem;">
+    {% if status_filter %}
+      <input type="hidden" name="status" value="{{ status_filter }}">
+    {% endif %}
+    <button type="submit" class="btn-admin btn-admin-secondary">Search</button>
+  </form>
+
+  <!-- Orders Table -->
+  <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;text-align:left;">
+      <thead>
+        <tr style="border-bottom:2px solid var(--admin-border);background:#F9FAFB;color:var(--admin-muted);">
+          <th style="padding:12px;">Order #</th>
+          <th style="padding:12px;">Date</th>
+          <th style="padding:12px;">Customer</th>
+          <th style="padding:12px;">Total</th>
+          <th style="padding:12px;">Payment</th>
+          <th style="padding:12px;">Fulfillment Status</th>
+          <th style="padding:12px;text-align:right;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ord in orders %}
+          <tr style="border-bottom:1px solid var(--admin-border);">
+            <td style="padding:12px;font-weight:700;color:var(--admin-primary);">
+              #{{ ord.order_number }}
+            </td>
+            <td style="padding:12px;color:var(--admin-muted);">
+              {{ ord.created_at.strftime('%d %b %Y, %I:%M %p') }}
+            </td>
+            <td style="padding:12px;">
+              <div style="font-weight:600;">{{ ord.full_name }}</div>
+              <small style="color:var(--admin-muted);">{{ ord.city }}, {{ ord.state }}</small>
+            </td>
+            <td style="padding:12px;font-weight:700;">
+              ₹{{ '%.2f'|format(ord.total_amount) }}
+            </td>
+            <td style="padding:12px;">
+              <span class="badge-status" style="background:{% if ord.payment_status == 'paid' %}#DCFCE7;color:#166534;{% else %}#FEF3C7;color:#92400E;{% endif %}">
+                {{ ord.payment_method|upper }} ({{ ord.payment_status }})
+              </span>
+            </td>
+            <td style="padding:12px;">
+              <span class="badge-status" style="background:{% if ord.order_status == 'Delivered' %}#DCFCE7;color:#166534;{% elif ord.order_status == 'Cancelled' %}#FEE2E2;color:#991B1B;{% else %}#DBEAFE;color:#1E40AF;{% endif %}">
+                {{ ord.order_status }}
+              </span>
+            </td>
+            <td style="padding:12px;text-align:right;">
+              <a href="{{ url_for('admin_order_detail', order_id=ord.id) }}" class="btn-admin btn-admin-primary" style="padding:6px 14px;font-size:0.8rem;">
+                Manage Order &rarr;
+              </a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if pagination.pages > 1 %}
+    <div style="display:flex;justify-content:center;gap:8px;margin-top:28px;">
+      {% if pagination.has_prev %}
+        <a href="{{ url_for('admin_orders', page=pagination.prev_num, status=status_filter, search=search) }}" class="btn-admin btn-admin-secondary">&larr; Previous</a>
+      {% endif %}
+      {% for pg in pagination.iter_pages() %}
+        {% if pg %}
+          <a href="{{ url_for('admin_orders', page=pg, status=status_filter, search=search) }}" class="btn-admin {% if pg == pagination.page %}btn-admin-primary{% else %}btn-admin-secondary{% endif %}">{{ pg }}</a>
+        {% endif %}
+      {% endfor %}
+      {% if pagination.has_next %}
+        <a href="{{ url_for('admin_orders', page=pagination.next_num, status=status_filter, search=search) }}" class="btn-admin btn-admin-secondary">Next &rarr;</a>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

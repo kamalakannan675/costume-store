@@ -1,0 +1,144 @@
+{% extends 'admin/base.html' %}
+
+{% block page_title %}Categories & Departments{% endblock %}
+
+{% block admin_content %}
+<div style="display:grid;grid-template-columns:1.3fr 0.7fr;gap:28px;align-items:start;">
+
+  <!-- Categories Table -->
+  <div class="admin-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;border-bottom:1px solid var(--admin-border);padding-bottom:10px;">
+      <h3 style="font-size:1.2rem;margin:0;">
+        Catalogue Categories & Storefront Visibility
+      </h3>
+      <span style="font-size:0.8rem;color:var(--admin-muted);">
+        Only storefront-visible categories appear to public shoppers
+      </span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      {% for cat in categories if not cat.parent_id %}
+        <div style="border:1px solid var(--admin-border);border-radius:8px;padding:16px;background:{% if cat.is_visible_on_storefront %}#FFFFFF{% else %}#F9FAFB{% endif %};">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:10px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              {% if cat.image_url %}
+                <img src="{{ cat.image_url }}" alt="{{ cat.name }}" style="width:40px;height:40px;border-radius:6px;object-fit:cover;">
+              {% endif %}
+              <div>
+                <strong style="font-size:1.05rem;color:var(--admin-primary);">{{ cat.name }}</strong>
+                <small style="color:var(--admin-muted);display:block;">Slug: /category/{{ cat.slug }}</small>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:8px;">
+              <!-- Visibility Badge -->
+              {% if cat.is_visible_on_storefront %}
+                <span class="badge-status" style="background:#DCFCE7;color:#166534;font-size:0.75rem;">
+                  <i class="fas fa-eye"></i> Storefront: Visible
+                </span>
+              {% else %}
+                <span class="badge-status" style="background:#F3F4F6;color:#6B7280;font-size:0.75rem;">
+                  <i class="fas fa-eye-slash"></i> Storefront: Hidden
+                </span>
+              {% endif %}
+
+              <span class="badge-status" style="background:#E0E7FF;color:#3730A3;font-size:0.75rem;">
+                {{ cat.products.count() }} Products
+              </span>
+
+              <!-- Actions -->
+              <form action="{{ url_for('admin_toggle_category_visibility', category_id=cat.id) }}" method="POST" style="display:inline;">
+                <button type="submit" class="btn-admin btn-admin-secondary" style="padding:4px 8px;font-size:0.75rem;" title="Toggle Storefront Visibility">
+                  {% if cat.is_visible_on_storefront %}Hide{% else %}Show{% endif %}
+                </button>
+              </form>
+
+              <a href="{{ url_for('admin_edit_category', category_id=cat.id) }}" class="btn-admin btn-admin-secondary" style="padding:4px 8px;font-size:0.75rem;" title="Edit Category">
+                <i class="fas fa-edit"></i>
+              </a>
+
+              {% if cat.products.count() == 0 %}
+                <form action="{{ url_for('admin_delete_category', category_id=cat.id) }}" method="POST" onsubmit="return confirm('Delete category {{ cat.name }}?');" style="display:inline;">
+                  <button type="submit" class="btn-admin" style="background:#FEE2E2;color:#991B1B;padding:4px 8px;font-size:0.75rem;" title="Delete Category">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </form>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Subcategories -->
+          {% if cat.subcategories %}
+            <div style="padding-left:46px;display:flex;flex-direction:column;gap:6px;margin-top:10px;border-top:1px dashed var(--admin-border);padding-top:10px;">
+              {% for sub in cat.subcategories %}
+                <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.85rem;color:var(--admin-text);padding:3px 0;">
+                  <span>&bull; {{ sub.name }} <small style="color:var(--admin-muted);">(Slug: {{ sub.slug }})</small></span>
+                  <div style="display:inline-flex;align-items:center;gap:6px;">
+                    {% if sub.is_visible_on_storefront %}
+                      <span style="font-size:0.7rem;color:#166534;"><i class="fas fa-check-circle"></i> Visible</span>
+                    {% else %}
+                      <span style="font-size:0.7rem;color:#6B7280;"><i class="fas fa-eye-slash"></i> Hidden</span>
+                    {% endif %}
+                    <a href="{{ url_for('admin_edit_category', category_id=sub.id) }}" style="color:var(--admin-muted);font-size:0.75rem;" title="Edit Subcategory">
+                      <i class="fas fa-edit"></i>
+                    </a>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Add Category Form -->
+  <div class="admin-card">
+    <h3 style="font-size:1.2rem;margin-bottom:16px;border-bottom:1px solid var(--admin-border);padding-bottom:10px;">
+      + Add New Category / Department
+    </h3>
+
+    <form action="{{ url_for('admin_add_category') }}" method="POST">
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:4px;">Category Name *</label>
+        <input type="text" name="name" required placeholder="e.g. Masquerade & Carnival" style="width:100%;padding:10px 14px;border:1px solid var(--admin-border);border-radius:6px;outline:none;font-size:0.9rem;">
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:4px;">Parent Category (Leave empty for Top-level)</label>
+        <select name="parent_id" style="width:100%;padding:10px 14px;border:1px solid var(--admin-border);border-radius:6px;outline:none;font-size:0.9rem;">
+          <option value="">-- Top-Level Department (No Parent) --</option>
+          {% for c in categories if not c.parent_id %}
+            <option value="{{ c.id }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:4px;">Banner Image URL</label>
+        <input type="text" name="image_url" placeholder="/static/images/... or https://..." style="width:100%;padding:10px 14px;border:1px solid var(--admin-border);border-radius:6px;outline:none;font-size:0.9rem;">
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:4px;">Department Description</label>
+        <textarea name="description" rows="3" placeholder="Brief summary for category banner..." style="width:100%;padding:10px 14px;border:1px solid var(--admin-border);border-radius:6px;outline:none;font-size:0.9rem;"></textarea>
+      </div>
+
+      <div style="margin-bottom:20px;padding:12px;background:#F9FAFB;border:1px solid var(--admin-border);border-radius:6px;">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:0.875rem;font-weight:600;">
+          <input type="checkbox" name="is_visible_on_storefront" value="1" checked style="width:18px;height:18px;">
+          <span>Visible on Customer Storefront</span>
+        </label>
+        <small style="color:var(--admin-muted);display:block;margin-top:4px;padding-left:28px;">
+          Uncheck to keep this category internal in admin dashboard (hidden from public customers).
+        </small>
+      </div>
+
+      <button type="submit" class="btn-admin btn-admin-primary" style="width:100%;padding:10px;">
+        <i class="fas fa-plus"></i> Create Category
+      </button>
+    </form>
+  </div>
+
+</div>
+{% endblock %}

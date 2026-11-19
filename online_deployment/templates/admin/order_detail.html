@@ -1,0 +1,258 @@
+{% extends 'admin/base.html' %}
+
+{% block page_title %}Order #{{ order.order_number }} Fulfillment{% endblock %}
+
+{% block admin_content %}
+<div style="margin-bottom:20px;">
+  <a href="{{ url_for('admin_orders') }}" class="btn-admin btn-admin-secondary">&larr; Back to Orders List</a>
+</div>
+
+<div style="display:grid;grid-template-columns:1.2fr 0.8fr;gap:28px;align-items:start;">
+
+  <!-- Left: Order Items & Delivery Address -->
+  <div>
+    <!-- Order Items -->
+    <div class="admin-card">
+      <h3 style="font-size:1.2rem;margin-bottom:16px;border-bottom:1px solid var(--admin-border);padding-bottom:10px;">
+        Order Items ({{ order.items|length }})
+      </h3>
+
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        {% for itm in order.items %}
+          <div style="display:flex;gap:16px;align-items:center;padding-bottom:14px;border-bottom:1px solid #F3F4F6;">
+            {% if itm.image_url %}
+              <img src="{{ itm.image_url }}" alt="{{ itm.product_name }}" style="width:60px;height:75px;object-fit:cover;border-radius:4px;flex-shrink:0;">
+            {% endif %}
+            <div style="flex:1;">
+              <h4 style="font-size:0.95rem;margin-bottom:4px;">{{ itm.product_name }}</h4>
+              <div style="font-size:0.8rem;color:var(--admin-muted);">
+                Size: <strong>{{ itm.size }}</strong> &bull; Colour: <strong>{{ itm.colour }}</strong>
+              </div>
+              <small style="color:var(--admin-muted);">Qty: {{ itm.quantity }} &times; ₹{{ '%.2f'|format(itm.unit_price) }}</small>
+            </div>
+            <div style="font-weight:700;font-size:1.05rem;color:var(--admin-primary);">
+              ₹{{ '%.2f'|format(itm.total_price) }}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+
+      <!-- Financial Totals -->
+      <div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--admin-border);font-size:0.9rem;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+          <span style="color:var(--admin-muted);">Subtotal</span>
+          <span>₹{{ '%.2f'|format(order.subtotal) }}</span>
+        </div>
+        {% if order.discount_amount > 0 %}
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px;color:var(--admin-success);">
+            <span>Coupon Discount ({{ order.coupon_code }})</span>
+            <span>- ₹{{ '%.2f'|format(order.discount_amount) }}</span>
+          </div>
+        {% endif %}
+        <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+          <span style="color:var(--admin-muted);">Delivery Charge</span>
+          <span>₹{{ '%.2f'|format(order.delivery_fee) }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:1.15rem;font-weight:700;border-top:2px solid var(--admin-border);padding-top:10px;">
+          <span>Grand Total</span>
+          <span style="color:var(--admin-primary);">₹{{ '%.2f'|format(order.total_amount) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Customer & Destination Details -->
+    <div class="admin-card">
+      <h3 style="font-size:1.2rem;margin-bottom:14px;border-bottom:1px solid var(--admin-border);padding-bottom:10px;">Customer Shipping Address</h3>
+      <div style="font-size:0.9rem;line-height:1.7;">
+        <strong>{{ order.full_name }}</strong><br>
+        {{ order.shipping_address }}<br>
+        {{ order.city }}, {{ order.state }} - {{ order.pincode }}<br>
+        Phone: <strong>{{ order.phone }}</strong><br>
+        Email: <strong>{{ order.email }}</strong>
+      </div>
+      {% if order.notes %}
+        <div style="margin-top:14px;padding:12px;background:#FEF3C7;border-radius:6px;font-size:0.85rem;color:#78350F;">
+          <strong>Customer Note:</strong> {{ order.notes }}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Right: Status Update Controls & Payment Information -->
+  <div>
+    <!-- Payment & Gateway Details -->
+    <div class="admin-card" style="margin-bottom:20px;">
+      <h3 style="font-size:1.15rem;margin-bottom:14px;border-bottom:1px solid var(--admin-border);padding-bottom:10px;">Payment Information</h3>
+      <div style="font-size:0.875rem;line-height:1.8;">
+        <div>Payment Method: 
+          {% if order.payment_method == 'cod' %}
+            <strong style="color:var(--admin-primary);"><i class="fas fa-money-bill-wave"></i> Cash on Delivery (COD)</strong>
+          {% else %}
+            <strong style="color:#2563EB;"><i class="fas fa-credit-card"></i> Razorpay Online Payment</strong>
+          {% endif %}
+        </div>
+        <div>Payment Status: 
+          {% if order.payment_status in ['paid', 'collected'] %}
+            <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:700;background:#DCFCE7;color:#166534;">
+              {{ order.payment_status|upper }}
+            </span>
+          {% elif order.payment_status == 'pending' %}
+            <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:700;background:#FEF3C7;color:#92400E;">
+              PENDING
+            </span>
+          {% else %}
+            <span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:0.75rem;font-weight:700;background:#FEE2E2;color:#991B1B;">
+              {{ order.payment_status|upper }}
+            </span>
+          {% endif %}
+        </div>
+
+        {% if order.payment_method == 'cod' and order.payment_status != 'collected' %}
+          <form action="{{ url_for('admin_mark_cod_collected', order_id=order.id) }}" method="POST" style="margin-top:14px;">
+            <button type="submit" class="btn-admin" style="background:#15803D;color:#FFF;width:100%;padding:10px;font-size:0.85rem;">
+              <i class="fas fa-check-circle"></i> Mark COD Payment as Collected
+            </button>
+          </form>
+        {% endif %}
+
+        {% if payment_txn %}
+          <div style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--admin-border);font-size:0.8rem;color:var(--admin-muted);">
+            <div>Gateway Order ID: <code style="color:#111;">{{ payment_txn.gateway_order_id }}</code></div>
+            <div>Gateway Payment ID: <code style="color:#111;">{{ payment_txn.gateway_payment_id or '—' }}</code></div>
+            <div>Gateway Status: <strong>{{ payment_txn.status|upper }}</strong></div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Fulfillment & Courier -->
+    <div class="admin-card">
+      <h3 style="font-size:1.2rem;margin-bottom:18px;border-bottom:1px solid var(--admin-border);padding-bottom:10px;">Fulfillment & Courier</h3>
+
+      <form action="{{ url_for('admin_update_order_status', order_id=order.id) }}" method="POST">
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;">Order Status *</label>
+          <select name="order_status" required style="width:100%;padding:10px 14px;border:1px solid var(--admin-border);border-radius:6px;outline:none;font-size:0.9rem;">
+            {% for st in ['Pending', 'Confirmed', 'Processing', 'Shipped', 'Out for Delivery', 'Delivered', 'Cancelled', 'Returned'] %}
+              <option value="{{ st }}" {% if order.order_status == st %}selected{% endif %}>{{ st }}</option>
+            {% endfor %}
+          </select>
+          <small style="color:var(--admin-muted);font-size:0.75rem;display:block;margin-top:4px;">Customer receives email alert on status changes.</small>
+        </div>
+
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;">Courier Partner Name</label>
+          <input type="text" name="courier_name" value="{{ order.courier_name or '' }}" placeholder="e.g. Blue Dart, Delhivery, DTDC, India Post" style="width:100%;padding:10px 14px;border:1px solid var(--admin-border);border-radius:6px;outline:none;font-size:0.9rem;">
+        </div>
+
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;">Courier Tracking Number / AWB</label>
+          <input type="text" name="tracking_number" value="{{ order.tracking_number or '' }}" placeholder="e.g. DTDC-987654321, BLUEDART-12345" style="width:100%;padding:10px 14px;border:1px solid var(--admin-border);border-radius:6px;outline:none;font-size:0.9rem;">
+        </div>
+
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;">Direct Tracking URL</label>
+          <input type="url" name="tracking_url" value="{{ order.tracking_url or '' }}" placeholder="https://track.courier.com/..." style="width:100%;padding:10px 14px;border:1px solid var(--admin-border);border-radius:6px;outline:none;font-size:0.9rem;">
+        </div>
+
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;">Status / Shipment Notes (Internal & Email)</label>
+          <input type="text" name="notes" placeholder="e.g. Dispatched from Mumbai fulfillment hub" style="width:100%;padding:10px 14px;border:1px solid var(--admin-border);border-radius:6px;outline:none;font-size:0.9rem;">
+        </div>
+
+        <div style="margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" name="notify_customer" id="notifyCustomerCheckbox" value="true" checked style="accent-color:var(--admin-primary);width:16px;height:16px;">
+          <label for="notifyCustomerCheckbox" style="font-size:0.85rem;font-weight:600;color:var(--admin-dark);cursor:pointer;user-select:none;">
+            Send Email Notification to Customer
+          </label>
+        </div>
+
+        <div style="margin-bottom:20px;">
+          <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;">Payment Status</label>
+          <select name="payment_status" style="width:100%;padding:10px 14px;border:1px solid var(--admin-border);border-radius:6px;outline:none;font-size:0.9rem;">
+            {% if order.payment_method == 'cod' %}
+              <option value="pending" {% if order.payment_status == 'pending' %}selected{% endif %}>Pending (Awaiting Collection)</option>
+              <option value="collected" {% if order.payment_status in ['collected', 'paid'] %}selected{% endif %}>Collected</option>
+              <option value="failed" {% if order.payment_status == 'failed' %}selected{% endif %}>Failed / Not Collected</option>
+            {% else %}
+              <option value="paid" {% if order.payment_status == 'paid' %}selected{% endif %}>Paid (Gateway Verified)</option>
+              <option value="pending" {% if order.payment_status == 'pending' %}selected{% endif %}>Pending</option>
+              <option value="refunded" {% if order.payment_status == 'refunded' %}selected{% endif %}>Refunded</option>
+              <option value="failed" {% if order.payment_status == 'failed' %}selected{% endif %}>Failed</option>
+            {% endif %}
+          </select>
+          {% if order.payment_method == 'razorpay' and order.payment_status != 'paid' %}
+            <small style="color:var(--admin-warning);font-size:0.75rem;display:block;margin-top:4px;">
+              <i class="fas fa-lock"></i> Online orders cannot be marked as Paid without cryptographic gateway verification.
+            </small>
+          {% endif %}
+        </div>
+
+        <button type="submit" class="btn-admin btn-admin-primary" style="width:100%;padding:12px;">
+          <i class="fas fa-check"></i> Update Order Status
+        </button>
+      </form>
+    </div>
+
+    <!-- Order Status History / Audit Trail -->
+    {% if order.status_logs %}
+      <div class="admin-card" style="margin-top:20px;">
+        <h3 style="font-size:1.1rem;margin-bottom:14px;border-bottom:1px solid var(--admin-border);padding-bottom:8px;">
+          <i class="fas fa-history"></i> Status & Fulfillment History
+        </h3>
+        <div style="display:flex;flex-direction:column;gap:12px;font-size:0.8rem;">
+          {% for log in order.status_logs|sort(attribute='created_at', reverse=True) %}
+            <div style="padding:10px 12px;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:6px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <strong>{{ log.old_status or 'Created' }} &rarr; <span style="color:var(--admin-primary);">{{ log.new_status }}</span></strong>
+                <span style="color:var(--admin-muted);">{{ log.created_at.strftime('%d %b %Y, %I:%M %p') }}</span>
+              </div>
+              {% if log.courier_name or log.tracking_number %}
+                <div style="color:var(--admin-muted);margin-bottom:2px;">
+                  Courier: {{ log.courier_name or '—' }} &bull; AWB: {{ log.tracking_number or '—' }}
+                </div>
+              {% endif %}
+              {% if log.tracking_url %}
+                <div><a href="{{ log.tracking_url }}" target="_blank" rel="noopener noreferrer" style="color:var(--admin-primary);text-decoration:underline;">Tracking Link &rarr;</a></div>
+              {% endif %}
+              {% if log.notes %}
+                <div style="margin-top:4px;font-style:italic;color:#4B5563;">"{{ log.notes }}"</div>
+              {% endif %}
+              <div style="font-size:0.75rem;color:var(--admin-muted);margin-top:6px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;">
+                <div>
+                  Customer Notified: 
+                  {% if log.customer_notified %}
+                    <span style="color:#166534;font-weight:600;"><i class="fas fa-check"></i> Yes{% if log.notified_at %} ({{ log.notified_at.strftime('%d %b %Y, %I:%M %p') }}){% endif %}</span>
+                  {% else %}
+                    <span style="color:#B91C1C;font-weight:600;"><i class="fas fa-times"></i> No</span>
+                  {% endif %}
+                </div>
+                {% if not log.customer_notified %}
+                  <form method="POST" action="{{ url_for('admin_resend_order_notification', order_id=order.id, log_id=log.id) }}" style="display:inline;margin:0;">
+                    <button type="submit" class="admin-btn admin-btn-sm" style="font-size:0.7rem;padding:3px 8px;background:none;border:1px solid #D1D5DB;border-radius:4px;cursor:pointer;">
+                      <i class="fas fa-envelope"></i> Resend Email
+                    </button>
+                  </form>
+                {% else %}
+                  <form method="POST" action="{{ url_for('admin_resend_order_notification', order_id=order.id, log_id=log.id) }}" style="display:inline;margin:0;" onsubmit="return confirm('Customer has already been notified for this event. Do you want to force resend?');">
+                    <input type="hidden" name="force" value="true">
+                    <button type="submit" class="admin-btn admin-btn-sm" style="font-size:0.7rem;padding:3px 8px;background:none;border:1px solid #E5E7EB;border-radius:4px;cursor:pointer;color:#6B7280;" title="Already notified. Click to force resend.">
+                      <i class="fas fa-redo"></i> Force Resend
+                    </button>
+                  </form>
+                {% endif %}
+              </div>
+              {% if log.notification_error %}
+                <div style="font-size:0.7rem;color:#B91C1C;margin-top:3px;background:#FEE2E2;padding:4px 8px;border-radius:4px;">
+                  <i class="fas fa-exclamation-triangle"></i> Delivery Failure: {{ log.notification_error }}
+                </div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

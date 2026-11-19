@@ -1,0 +1,57 @@
+{% extends 'admin/base.html' %}
+
+{% block page_title %}Customer Accounts Directory{% endblock %}
+
+{% block admin_content %}
+<div class="admin-card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <div>
+      <h3 style="font-size:1.25rem;margin:0;">Registered Customers ({{ customers|length }})</h3>
+      <span style="font-size:0.85rem;color:var(--admin-muted);">View customer profiles and order histories.</span>
+    </div>
+  </div>
+
+  <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;text-align:left;">
+      <thead>
+        <tr style="border-bottom:2px solid var(--admin-border);background:#F9FAFB;color:var(--admin-muted);">
+          <th style="padding:12px;">ID</th>
+          <th style="padding:12px;">Customer Name</th>
+          <th style="padding:12px;">Email Address</th>
+          <th style="padding:12px;">Phone</th>
+          <th style="padding:12px;">Total Orders</th>
+          <th style="padding:12px;text-align:right;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in customers %}
+          <tr style="border-bottom:1px solid var(--admin-border);">
+            <td style="padding:12px;color:var(--admin-muted);">#{{ c.id }}</td>
+            <td style="padding:12px;font-weight:700;">{{ c.name }}</td>
+            <td style="padding:12px;color:var(--admin-muted);">{{ c.email }}</td>
+            <td style="padding:12px;">{{ c.phone or '-' }}</td>
+            <td style="padding:12px;font-weight:600;">
+              {{ c.orders.count() }} orders
+            </td>
+            <td style="padding:12px;text-align:right;white-space:nowrap;">
+              <a href="{{ url_for('admin_customer_detail', customer_id=c.id) }}" class="btn-admin btn-admin-secondary" style="padding:6px 12px;font-size:0.8rem;margin-right:6px;">
+                View &rarr;
+              </a>
+              {% if not c.is_admin %}
+                <form action="{{ url_for('admin_delete_customer', customer_id=c.id) }}" method="POST" style="display:inline-block;"
+                      onsubmit="return confirm('Are you sure you want to delete customer account \'{{ c.name }}\' ({{ c.email }})? Order history and payment audits will be safely preserved.');">
+                  <button type="submit" class="btn-admin" style="background:#EF4444;color:#FFFFFF;border:none;padding:6px 12px;font-size:0.8rem;border-radius:4px;cursor:pointer;">
+                    <i class="fas fa-trash-alt"></i> Delete
+                  </button>
+                </form>
+              {% else %}
+                <span class="badge-status" style="background:#E0E7FF;color:#3730A3;font-size:0.75rem;padding:4px 8px;border-radius:4px;">Administrator</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

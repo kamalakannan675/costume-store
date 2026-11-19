@@ -1,0 +1,289 @@
+{% extends 'base.html' %}
+
+{% block title %}My Account | COSTUME STORE{% endblock %}
+
+{% block content %}
+<div style="background:var(--secondary-light);border-bottom:1px solid var(--border-color);padding:28px 24px;">
+  <div style="max-width:1400px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
+    <div>
+      <h1 style="font-size:2rem;margin:0;">My Account</h1>
+      <span style="font-size:0.875rem;color:var(--text-muted);">Welcome, <strong>{{ user.name }}</strong> ({{ user.email }})</span>
+    </div>
+    <div style="display:flex;gap:12px;">
+      <a href="{{ url_for('my_orders') }}" class="btn btn-outline btn-sm">
+        <i class="fas fa-box"></i> Order History
+      </a>
+      <a href="{{ url_for('wishlist') }}" class="btn btn-outline btn-sm">
+        <i class="fas fa-heart"></i> Wishlist
+      </a>
+      <a href="{{ url_for('logout') }}" class="btn btn-secondary btn-sm" style="color:var(--danger);">
+        <i class="fas fa-sign-out-alt"></i> Log Out
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Tab Navigation -->
+<div style="max-width:1400px;margin:24px auto 0 auto;padding:0 24px;">
+  <div style="display:flex;gap:12px;border-bottom:2px solid var(--border-color);padding-bottom:12px;">
+    <a href="{{ url_for('profile') }}" class="btn btn-sm" style="{% if active_tab != 'reviews' %}background:var(--primary);color:#FFFFFF;{% else %}background:var(--secondary);color:var(--text-dark);{% endif %}border-radius:var(--radius-sm);text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:8px;padding:8px 16px;">
+      <i class="fas fa-user-circle"></i> Profile & Security
+    </a>
+    <a href="{{ url_for('profile', tab='reviews') }}" class="btn btn-sm" style="{% if active_tab == 'reviews' %}background:var(--primary);color:#FFFFFF;{% else %}background:var(--secondary);color:var(--text-dark);{% endif %}border-radius:var(--radius-sm);text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:8px;padding:8px 16px;">
+      <i class="fas fa-star"></i> Reviews & Ratings ({{ reviews|length if reviews else 0 }})
+    </a>
+  </div>
+</div>
+
+{% if active_tab == 'reviews' %}
+<!-- Reviews & Ratings Tab -->
+<div style="max-width:1400px;margin:28px auto 40px auto;padding:0 24px;">
+  <div style="background:#FFFFFF;border:1px solid var(--border-color);border-radius:var(--radius-md);padding:32px;box-shadow:var(--shadow-sm);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;border-bottom:1px solid var(--border-color);padding-bottom:14px;">
+      <div>
+        <h2 style="font-size:1.4rem;margin:0 0 4px 0;color:var(--text-dark);">My Product Reviews & Ratings</h2>
+        <span style="font-size:0.85rem;color:var(--text-muted);">Manage and track customer feedback you have submitted for your costumes.</span>
+      </div>
+      <a href="{{ url_for('my_orders') }}" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:8px;">
+        <i class="fas fa-plus-circle"></i> Review Purchased Products
+      </a>
+    </div>
+
+    {% if reviews %}
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        {% for rev in reviews %}
+          <div style="background:var(--secondary-light);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:20px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:10px;">
+              <div>
+                <a href="{{ url_for('product_details', product_id=rev.product_id) }}" style="font-size:1.05rem;font-weight:700;color:var(--primary);text-decoration:none;">
+                  {{ rev.product.name if rev.product else 'Costume Product #' ~ rev.product_id }}
+                </a>
+                <div style="display:flex;align-items:center;gap:4px;margin-top:6px;">
+                  {% for s in range(rev.rating) %}
+                    <i class="fas fa-star" style="color:#F59E0B;font-size:0.95rem;"></i>
+                  {% endfor %}
+                  {% for s in range(5 - rev.rating) %}
+                    <i class="far fa-star" style="color:#CBD5E1;font-size:0.95rem;"></i>
+                  {% endfor %}
+                  <span style="margin-left:8px;font-size:0.85rem;font-weight:700;color:var(--text-dark);">{{ rev.rating }}.0 / 5.0</span>
+                </div>
+              </div>
+              <div style="text-align:right;">
+                <span class="badge" style="{% if rev.is_approved %}background:#E8F5E9;color:#1B5E20;{% else %}background:#FFF8E1;color:#F57F17;{% endif %}margin-bottom:6px;display:inline-block;">
+                  {% if rev.is_approved %}<i class="fas fa-check-circle"></i> Approved{% else %}<i class="fas fa-clock"></i> Pending Moderation{% endif %}
+                </span>
+                <div style="font-size:0.75rem;color:var(--text-muted);">
+                  {{ rev.created_at.strftime('%d %b %Y, %I:%M %p') }}
+                </div>
+              </div>
+            </div>
+            {% if rev.comment %}
+              <div style="font-size:0.9rem;color:var(--text-dark);line-height:1.6;background:#FFFFFF;border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:14px;margin-top:10px;">
+                "{{ rev.comment }}"
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div style="text-align:center;padding:56px 20px;color:var(--text-muted);">
+        <div style="width:64px;height:64px;border-radius:50%;background:var(--secondary);color:#F59E0B;display:inline-flex;align-items:center;justify-content:center;font-size:1.8rem;margin-bottom:16px;">
+          <i class="fas fa-star"></i>
+        </div>
+        <h3 style="font-size:1.15rem;color:var(--text-dark);margin:0 0 8px 0;">No Reviews Submitted Yet</h3>
+        <p style="font-size:0.875rem;margin:0 0 20px 0;max-width:440px;margin-left:auto;margin-right:auto;">
+          Share your experience with costumes you have received to help other shoppers make the perfect choice!
+        </p>
+        <a href="{{ url_for('my_orders') }}" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:8px;">
+          <i class="fas fa-box"></i> View Past Orders to Review
+        </a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% else %}
+<div style="max-width:1400px;margin:36px auto;padding:0 24px;">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:start;">
+
+    <!-- Left: Profile Details & Password Change -->
+    <div>
+      <!-- Profile Information -->
+      <div style="background:#FFFFFF;border:1px solid var(--border-color);border-radius:var(--radius-md);padding:28px;box-shadow:var(--shadow-sm);margin-bottom:28px;">
+        <h3 style="font-size:1.2rem;margin-bottom:16px;border-bottom:1px solid var(--border-color);padding-bottom:10px;">
+          Personal Details
+        </h3>
+        <form action="{{ url_for('edit_profile') }}" method="POST">
+          <div style="margin-bottom:14px;">
+            <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:4px;">Full Name</label>
+            <input type="text" name="name" required value="{{ user.name }}" style="width:100%;padding:10px 14px;border:1px solid var(--border-color);border-radius:var(--radius-sm);outline:none;font-size:0.9rem;">
+          </div>
+
+          <div style="margin-bottom:14px;">
+            <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:4px;">Email Address (Read-only)</label>
+            <input type="email" value="{{ user.email }}" disabled style="width:100%;padding:10px 14px;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:#F6F6F6;font-size:0.9rem;color:#888;">
+          </div>
+
+          <div style="margin-bottom:14px;">
+            <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:4px;">Mobile Phone</label>
+            <input type="tel" name="phone" value="{{ user.phone or '' }}" pattern="[6-9][0-9]{9}" placeholder="10-digit mobile number" style="width:100%;padding:10px 14px;border:1px solid var(--border-color);border-radius:var(--radius-sm);outline:none;font-size:0.9rem;">
+          </div>
+
+          <div style="margin-bottom:20px;">
+            <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:4px;">Default Shipping Address</label>
+            <textarea name="address" rows="2" style="width:100%;padding:10px 14px;border:1px solid var(--border-color);border-radius:var(--radius-sm);outline:none;font-size:0.9rem;">{{ user.address or '' }}</textarea>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-sm">Update Profile Details</button>
+        </form>
+      </div>
+
+      <!-- Change Password -->
+      <div style="background:#FFFFFF;border:1px solid var(--border-color);border-radius:var(--radius-md);padding:28px;box-shadow:var(--shadow-sm);">
+        <h3 style="font-size:1.2rem;margin-bottom:16px;border-bottom:1px solid var(--border-color);padding-bottom:10px;">
+          Security & Password Change
+        </h3>
+        <form action="{{ url_for('change_password') }}" method="POST">
+          <div style="margin-bottom:14px;">
+            <label for="profCurrentPass" style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:4px;">Current Password</label>
+            <div style="position:relative;display:flex;align-items:center;">
+              <input type="password" id="profCurrentPass" name="current_password" required placeholder="••••••••" style="width:100%;padding:10px 40px 10px 14px;border:1px solid var(--border-color);border-radius:var(--radius-sm);outline:none;font-size:0.9rem;">
+              <button type="button" onclick="togglePasswordVisibility('profCurrentPass', this)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:8px;color:var(--text-muted);font-size:1rem;" aria-label="Show Password" title="Show Password">
+                <i class="fas fa-eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <div style="margin-bottom:14px;">
+            <label for="profNewPass" style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:4px;">New Password</label>
+            <div style="position:relative;display:flex;align-items:center;">
+              <input type="password" id="profNewPass" name="new_password" required minlength="8" placeholder="At least 8 characters" style="width:100%;padding:10px 40px 10px 14px;border:1px solid var(--border-color);border-radius:var(--radius-sm);outline:none;font-size:0.9rem;">
+              <button type="button" onclick="togglePasswordVisibility('profNewPass', this)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:8px;color:var(--text-muted);font-size:1rem;" aria-label="Show Password" title="Show Password">
+                <i class="fas fa-eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <div style="margin-bottom:20px;">
+            <label for="profConfirmPass" style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:4px;">Confirm New Password</label>
+            <div style="position:relative;display:flex;align-items:center;">
+              <input type="password" id="profConfirmPass" name="confirm_password" required minlength="8" placeholder="Repeat new password" style="width:100%;padding:10px 40px 10px 14px;border:1px solid var(--border-color);border-radius:var(--radius-sm);outline:none;font-size:0.9rem;">
+              <button type="button" onclick="togglePasswordVisibility('profConfirmPass', this)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:8px;color:var(--text-muted);font-size:1rem;" aria-label="Show Password" title="Show Password">
+                <i class="fas fa-eye"></i>
+              </button>
+            </div>
+            <div id="profPasswordValidationBox"></div>
+          </div>
+
+          <button type="submit" class="btn btn-secondary btn-sm">Save New Password</button>
+        </form>
+      </div>
+
+      <!-- Danger Zone / Delete Account -->
+      <div style="background:#FFF5F5;border:1px solid #FEB2B2;border-radius:var(--radius-md);padding:28px;box-shadow:var(--shadow-sm);margin-top:28px;">
+        <h3 style="font-size:1.2rem;color:var(--danger);margin-bottom:12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #FED7D7;padding-bottom:10px;">
+          <i class="fas fa-exclamation-triangle"></i> Delete My Account
+        </h3>
+        <p style="font-size:0.85rem;color:#742A2A;line-height:1.6;margin-bottom:16px;">
+          Permanently delete your customer account and saved personal details. Past orders and payment records will be retained anonymously for statutory and tax compliance. This action cannot be reversed.
+        </p>
+
+        <!-- Phase 1: Request OTP -->
+        <div id="deleteOtpRequestSection" {% if request.args.get('show_delete_modal') %}style="display:none;"{% endif %}>
+          <form id="deleteRequestOtpForm" action="{{ url_for('delete_account_request_otp') }}" method="POST">
+            <button type="submit" id="btnRequestDeleteOtp" class="btn btn-sm" style="background:var(--danger);color:#FFF;border:none;padding:10px 18px;font-weight:700;display:inline-flex;align-items:center;gap:8px;">
+              <i class="fas fa-envelope-open-text"></i> Request Deletion OTP
+            </button>
+          </form>
+        </div>
+
+        <!-- Phase 2: Enter OTP & Confirm -->
+        <div id="deleteOtpVerifySection" style="{% if not request.args.get('show_delete_modal') %}display:none;{% endif %}margin-top:16px;background:#FFFFFF;border:1px solid #FEB2B2;border-radius:var(--radius-sm);padding:20px;">
+          <div style="font-size:0.85rem;color:var(--text-dark);font-weight:600;margin-bottom:8px;">
+            <i class="fas fa-shield-alt" style="color:var(--danger);"></i> Enter 6-Digit Email Verification Code
+          </div>
+          <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:14px;">
+            A one-time code was sent to <strong>{{ user.email }}</strong>. It expires in <strong>5 minutes</strong>.
+          </p>
+
+          <form id="deleteVerifyOtpForm" action="{{ url_for('delete_account_verify_otp') }}" method="POST">
+            <div style="margin-bottom:14px;">
+              <input type="text" name="otp" id="deleteOtpInput" maxlength="6" pattern="[0-9]{6}" required placeholder="6-digit OTP (e.g. 123456)" autocomplete="one-time-code" style="width:100%;max-width:240px;padding:10px 14px;font-size:1.1rem;letter-spacing:4px;font-weight:700;text-align:center;border:2px solid var(--danger);border-radius:var(--radius-sm);outline:none;">
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+              <button type="submit" id="btnConfirmDeleteAccount" class="btn btn-sm" style="background:#9B1C1C;color:#FFF;border:none;padding:10px 18px;font-weight:700;display:inline-flex;align-items:center;gap:8px;">
+                <i class="fas fa-trash-alt"></i> Permanently Delete Account
+              </button>
+              <button type="button" onclick="cancelAccountDeletion()" class="btn btn-outline btn-sm" style="padding:10px 16px;">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Right: Recent Orders Summary -->
+    <div>
+      <div style="background:#FFFFFF;border:1px solid var(--border-color);border-radius:var(--radius-md);padding:28px;box-shadow:var(--shadow-sm);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;border-bottom:1px solid var(--border-color);padding-bottom:10px;">
+          <h3 style="font-size:1.2rem;margin:0;">Recent Costume Orders</h3>
+          <a href="{{ url_for('my_orders') }}" style="font-size:0.85rem;font-weight:600;color:var(--primary);">View All &rarr;</a>
+        </div>
+
+        {% if recent_orders %}
+          <div style="display:flex;flex-direction:column;gap:16px;">
+            {% for ord in recent_orders %}
+              <div style="background:var(--secondary-light);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+                <div>
+                  <div style="font-weight:700;color:var(--primary);font-size:0.95rem;">#{{ ord.order_number }}</div>
+                  <div style="font-size:0.75rem;color:var(--text-muted);">{{ ord.created_at.strftime('%d %b %Y, %I:%M %p') }} &bull; {{ ord.items|length }} items</div>
+                  <div style="font-size:0.85rem;font-weight:600;margin-top:4px;">₹{{ '%.2f'|format(ord.total_amount) }} ({{ ord.payment_method|upper }})</div>
+                </div>
+
+                <div style="text-align:right;">
+                  <span class="badge" style="background:{% if ord.order_status == 'Delivered' %}#E8F5E9;color:#1B5E20;{% elif ord.order_status == 'Cancelled' %}#FFEBEE;color:#C62828;{% else %}#FFF8E1;color:#F57F17;{% endif %}margin-bottom:8px;display:inline-block;">
+                    {{ ord.order_status }}
+                  </span>
+                  <div>
+                    <a href="{{ url_for('order_detail', order_id=ord.id) }}" class="btn btn-outline btn-sm" style="padding:4px 12px;font-size:0.75rem;">
+                      Track & View
+                    </a>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div style="text-align:center;padding:40px 10px;color:var(--text-muted);">
+            <i class="fas fa-box-open" style="font-size:2.5rem;margin-bottom:12px;color:var(--border-color);"></i>
+            <p style="margin:0 0 16px 0;font-size:0.9rem;">You have not placed any costume orders yet.</p>
+            <a href="{{ url_for('shop') }}" class="btn btn-primary btn-sm">Explore Shop</a>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endif %}
+
+<script>
+function cancelAccountDeletion() {
+  var reqSec = document.getElementById('deleteOtpRequestSection');
+  var verSec = document.getElementById('deleteOtpVerifySection');
+  if (reqSec) reqSec.style.display = 'block';
+  if (verSec) verSec.style.display = 'none';
+}
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    if (window.setupLivePasswordValidation) {
+      window.setupLivePasswordValidation('profNewPass', 'profConfirmPass', 'profPasswordValidationBox');
+    }
+  });
+</script>
+{% endblock %}

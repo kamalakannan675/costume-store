@@ -1,0 +1,99 @@
+{% extends 'admin/base.html' %}
+
+{% block title %}Contact Messages | COSTUME STORE Admin{% endblock %}
+{% block page_title %}Customer Inquiries & Contact Messages{% endblock %}
+
+{% block admin_content %}
+<div class="admin-card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+    <div>
+      <h3 style="font-size:1.15rem;margin:0 0 4px 0;">Customer Inquiries</h3>
+      <p style="font-size:0.85rem;color:var(--admin-muted);margin:0;">Inquiries and feedback submitted via the Contact Us storefront form</p>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <span class="badge-status" style="background:#DBEAFE;color:#1E40AF;font-size:0.8rem;padding:6px 12px;">
+        Total: {{ messages|length }}
+      </span>
+      {% set unread_count = messages|selectattr('is_read', 'equalto', False)|list|length %}
+      {% if unread_count > 0 %}
+        <span class="badge-status" style="background:#FEE2E2;color:#991B1B;font-size:0.8rem;padding:6px 12px;">
+          Unread: {{ unread_count }}
+        </span>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if messages %}
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+        <thead>
+          <tr style="background:#F9FAFB;border-bottom:2px solid var(--admin-border);text-align:left;">
+            <th style="padding:12px 14px;color:var(--admin-muted);font-weight:600;">Status</th>
+            <th style="padding:12px 14px;color:var(--admin-muted);font-weight:600;">Sender</th>
+            <th style="padding:12px 14px;color:var(--admin-muted);font-weight:600;">Subject</th>
+            <th style="padding:12px 14px;color:var(--admin-muted);font-weight:600;">Message</th>
+            <th style="padding:12px 14px;color:var(--admin-muted);font-weight:600;">Received</th>
+            <th style="padding:12px 14px;color:var(--admin-muted);font-weight:600;text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for msg in messages %}
+            <tr style="border-bottom:1px solid var(--admin-border);vertical-align:top;{% if not msg.is_read %}background:#F8FAFC;font-weight:500;{% endif %}">
+              <td style="padding:14px;white-space:nowrap;">
+                {% if not msg.is_read %}
+                  <span class="badge-status" style="background:#FEE2E2;color:#991B1B;"><i class="fas fa-envelope"></i> Unread</span>
+                {% else %}
+                  <span class="badge-status" style="background:#E5E7EB;color:#4B5563;"><i class="fas fa-envelope-open"></i> Read</span>
+                {% endif %}
+              </td>
+              <td style="padding:14px;white-space:nowrap;">
+                <div style="font-weight:700;color:var(--admin-text);">{{ msg.name }}</div>
+                <div style="font-size:0.8rem;color:var(--admin-muted);">
+                  <a href="mailto:{{ msg.email }}" style="color:var(--admin-primary);text-decoration:none;">{{ msg.email }}</a>
+                </div>
+              </td>
+              <td style="padding:14px;max-width:200px;">
+                <div style="font-weight:600;color:var(--admin-text);">{{ msg.subject or '(No Subject)' }}</div>
+              </td>
+              <td style="padding:14px;max-width:380px;">
+                <div style="line-height:1.5;color:var(--admin-text);white-space:pre-wrap;background:#FFFFFF;border:1px solid var(--admin-border);padding:10px;border-radius:6px;font-size:0.85rem;">{{ msg.message }}</div>
+              </td>
+              <td style="padding:14px;white-space:nowrap;font-size:0.8rem;color:var(--admin-muted);">
+                {{ msg.created_at.strftime('%d %b %Y, %I:%M %p') }}
+              </td>
+              <td style="padding:14px;text-align:right;white-space:nowrap;">
+                <div style="display:inline-flex;gap:6px;align-items:center;">
+                  {% if not msg.is_read %}
+                    <form action="{{ url_for('admin_mark_message_read', message_id=msg.id) }}" method="POST" style="display:inline;">
+                      <button type="submit" class="btn-admin" style="background:#E0E7FF;color:#3730A3;padding:6px 10px;font-size:0.8rem;" title="Mark as Read">
+                        <i class="fas fa-check"></i> Read
+                      </button>
+                    </form>
+                  {% else %}
+                    <form action="{{ url_for('admin_mark_message_unread', message_id=msg.id) }}" method="POST" style="display:inline;">
+                      <button type="submit" class="btn-admin btn-admin-secondary" style="padding:6px 10px;font-size:0.8rem;" title="Mark as Unread">
+                        <i class="fas fa-envelope"></i>
+                      </button>
+                    </form>
+                  {% endif %}
+                  <form action="{{ url_for('admin_delete_message', message_id=msg.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Permanently delete this message?');">
+                    <button type="submit" class="btn-admin" style="background:#FEE2E2;color:#991B1B;padding:6px 10px;font-size:0.8rem;" title="Delete Message">
+                      <i class="fas fa-trash-alt"></i>
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="text-align:center;padding:56px 20px;color:var(--admin-muted);">
+      <i class="fas fa-inbox" style="font-size:2.5rem;color:#E5E7EB;margin-bottom:12px;"></i>
+      <h4 style="font-size:1.1rem;margin:0 0 6px 0;color:var(--admin-text);">No Customer Inquiries</h4>
+      <p style="font-size:0.85rem;margin:0;">Messages submitted by visitors via the storefront Contact Us page will be stored here.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

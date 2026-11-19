@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+
+{% block title %}Create Account | COSTUME STORE{% endblock %}
+
+{% block content %}
+<div style="max-width:680px;margin:40px auto;padding:0 20px;">
+  <div style="background:#FFFFFF;border:1px solid var(--border-color);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-md);padding:36px;">
+
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="width:56px;height:56px;border-radius:50%;background:var(--secondary-light);color:var(--primary);display:inline-flex;align-items:center;justify-content:center;font-size:1.5rem;margin-bottom:12px;">
+        <i class="fas fa-user-plus"></i>
+      </div>
+      <h2 style="font-size:1.6rem;margin:0 0 6px 0;color:var(--text-dark);">Create Customer Account</h2>
+      <p style="font-size:0.85rem;color:var(--text-muted);margin:0;">Enter your details and delivery address below</p>
+    </div>
+
+    <form action="{{ url_for('register') }}" method="POST" id="registerForm">
+      
+      <!-- Personal Details -->
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:1rem;color:var(--primary);border-bottom:1px solid var(--border-color);padding-bottom:8px;margin-bottom:16px;">
+          1. Personal Information
+        </h3>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;">
+          <div>
+            <label for="regName" style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;color:var(--text-dark);">
+              Full Name <span style="color:var(--danger);">*</span>
+            </label>
+            <input type="text" id="regName" name="name" required minlength="2" maxlength="100"
+                   value="{{ form_data.name if form_data else '' }}"
+                   placeholder="e.g. Priyadharshini Raman" 
+                   style="width:100%;padding:11px 14px;border:1px solid var(--border-color);border-radius:var(--radius-sm);outline:none;font-size:0.9rem;">
+            <div id="regNameFeedback" style="display:none;margin-top:6px;"></div>
+          </div>
+
+          <div>
+            <label for="regEmail" style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;color:var(--text-dark);">
+              Email Address <span style="color:var(--danger);">*</span>
+            </label>
+            <input type="email" id="regEmail" name="email" required autocomplete="email"
+                   value="{{ form_data.email if form_data else '' }}"
+                   placeholder="e.g. priya@example.com" 
+                   style="width:100%;padding:11px 14px;border:1px solid var(--border-color);border-radius:var(--radius-sm);outline:none;font-size:0.9rem;">
+            <div id="regEmailFeedback" style="display:none;margin-top:6px;"></div>
+          </div>
+        </div>
+
+        <div>
+          <label for="regPhone" style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;color:var(--text-dark);">
+            Mobile Number (India) <span style="color:var(--danger);">*</span>
+          </label>
+          <div style="display:flex;align-items:center;">
+            <span style="padding:11px 14px;background:var(--secondary);border:1px solid var(--border-color);border-right:none;border-radius:var(--radius-sm) 0 0 var(--radius-sm);font-weight:600;font-size:0.9rem;color:var(--text-dark);">+91</span>
+            <input type="tel" id="regPhone" name="phone" required pattern="[6-9][0-9]{9}" maxlength="10"
+                   value="{{ form_data.phone if form_data else '' }}"
+                   placeholder="10-digit mobile number" 
+                   style="width:100%;padding:11px 14px;border:1px solid var(--border-color);border-radius:0 var(--radius-sm) var(--radius-sm) 0;outline:none;font-size:0.9rem;">
+          </div>
+        </div>
+      </div>
+
+      <!-- Address System -->
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:1rem;color:var(--primary);border-bottom:1px solid var(--border-color);padding-bottom:8px;margin-bottom:16px;">
+          2. Complete Delivery Address
+        </h3>
+
+        <div style="margin-bottom:14px;">
+          <label for="regStreetAddress" style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;color:var(--text-dark);">
+            Flat / House No., Building, Street Address, Area <span style="color:var(--danger);">*</span>
+          </label>
+          <textarea id="regStreetAddress" name="street_address" required rows="2"
+                    placeholder="House/Flat No., Apartment/Building, Street, Landmark, Area" 
+                    style="width:100%;padding:11px 14px;border:1px solid var(--border-color);border-radius:var(--radius-sm);outline:none;font-size:0.9rem;font-family:inherit;">{{ form_data.street_address if form_data else '' }}</textarea>
+          <div id="regAddressFeedback" style="display:none;margin-top:6px;"></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px;">
+          <div>
+            <label for="stateSelect" style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;color:var(--text-dark);">
+              State / Union Territory <span style="color:var(--danger);">*</span>
+            </label>
+            <select id="stateSelect" name="state" required
+                    style="width:100%;padding:11px 14px;border:1px solid var(--border-color);border-radius:var(--radius-sm);outline:none;font-size:0.9rem;background:#FFFFFF;cursor:pointer;">
+              <option value="">-- Loading Indian States... --</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="districtSelect" style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;color:var(--text-dark);">
+              District / City <span style="color:var(--danger);">*</span>
+            </label>
+            <select id="districtSelect" name="city" required
+                    style="width:100%;padding:11px 14px;border:1px solid var(--border-color);border-radius:var(--radius-sm);outline:none;font-size:0.9rem;background:#FFFFFF;cursor:pointer;">
+              <option value="">-- Select State First --</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label for="regPincode" style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;color:var(--text-dark);">
+            PIN Code (Postal Index Number) <span style="color:var(--danger);">*</span>
+          </label>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;max-width:480px;">
+            <select id="regPincode" name="pincode" required
+                    style="flex:1;min-width:180px;padding:11px 14px;border:1px solid var(--border-color);border-radius:var(--radius-sm);outline:none;font-size:0.9rem;background:#FFFFFF;cursor:pointer;">
+              <option value="">-- Select District First --</option>
+            </select>
+            <input type="text" id="regPincodeSearch" placeholder="Filter PIN..." maxlength="6"
+                   style="width:130px;padding:11px 12px;border:1px solid var(--border-color);border-radius:var(--radius-sm);outline:none;font-size:0.85rem;"
+                   title="Type to filter PIN code dropdown">
+          </div>
+        </div>
+      </div>
+
+      <!-- Security / Password -->
+      <div style="margin-bottom:28px;">
+        <h3 style="font-size:1rem;color:var(--primary);border-bottom:1px solid var(--border-color);padding-bottom:8px;margin-bottom:16px;">
+          3. Security & Credentials
+        </h3>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div>
+            <label for="regPassword" style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;color:var(--text-dark);">
+              Password <span style="color:var(--danger);">*</span>
+            </label>
+            <div style="position:relative;display:flex;align-items:center;">
+              <input type="password" id="regPassword" name="password" required minlength="8" autocomplete="new-password"
+                     placeholder="Min 8 chars" 
+                     style="width:100%;padding:11px 40px 11px 14px;border:1px solid var(--border-color);border-radius:var(--radius-sm);outline:none;font-size:0.9rem;">
+              <button type="button" onclick="togglePasswordVisibility('regPassword', this)" 
+                      style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:8px;color:var(--text-muted);font-size:1rem;"
+                      aria-label="Show Password" title="Show Password">
+                <i class="fas fa-eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label for="regConfirmPassword" style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;color:var(--text-dark);">
+              Confirm Password <span style="color:var(--danger);">*</span>
+            </label>
+            <div style="position:relative;display:flex;align-items:center;">
+              <input type="password" id="regConfirmPassword" name="confirm_password" required minlength="8" autocomplete="new-password"
+                     placeholder="Repeat password" 
+                     style="width:100%;padding:11px 40px 11px 14px;border:1px solid var(--border-color);border-radius:var(--radius-sm);outline:none;font-size:0.9rem;">
+              <button type="button" onclick="togglePasswordVisibility('regConfirmPassword', this)" 
+                      style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:8px;color:var(--text-muted);font-size:1rem;"
+                      aria-label="Show Password" title="Show Password">
+                <i class="fas fa-eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <div id="regPasswordValidationBox" style="grid-column: span 2;"></div>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-sm" style="width:100%;padding:14px;font-size:1rem;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:var(--shadow-sm);">
+        <i class="fas fa-check-circle"></i> Create My Account
+      </button>
+    </form>
+
+    <div style="border-top:1px solid var(--border-color);margin-top:28px;padding-top:20px;text-align:center;">
+      <span style="font-size:0.875rem;color:var(--text-muted);">Already registered?</span>
+      <a href="{{ url_for('login') }}" style="display:block;margin-top:8px;font-size:0.9rem;font-weight:700;color:var(--primary);text-decoration:none;">
+        Sign In to Your Account &rarr;
+      </a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/india_locations.js') }}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var preState = {{ (form_data.state if form_data else '')|tojson }};
+    var preCity = {{ (form_data.city if form_data else '')|tojson }};
+    var prePincode = {{ (form_data.pincode if form_data else '')|tojson }};
+    if (window.initIndiaLocationSelectors) {
+      window.initIndiaLocationSelectors('stateSelect', 'districtSelect', preState, preCity, 'regPincode', prePincode, 'regPincodeSearch');
+    }
+    if (window.setupNameValidation) {
+      window.setupNameValidation('regName', 'regNameFeedback');
+    }
+    if (window.setupEmailValidation) {
+      window.setupEmailValidation('regEmail', 'regEmailFeedback');
+    }
+    if (window.setupAddressValidation) {
+      window.setupAddressValidation('regStreetAddress', 'regAddressFeedback');
+    }
+    if (window.setupLivePasswordValidation) {
+      window.setupLivePasswordValidation('regPassword', 'regConfirmPassword', 'regPasswordValidationBox');
+    }
+  });
+</script>
+{% endblock %}

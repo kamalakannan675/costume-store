@@ -1,0 +1,422 @@
+{% extends 'admin/base.html' %}
+
+{% block page_title %}Dedicated Sales Reports & Revenue Analytics{% endblock %}
+
+{% block extra_css %}
+<style>
+  .report-filter-bar {
+    background: #FFFFFF;
+    border: 1px solid var(--admin-border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+  }
+  .filter-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  .filter-pill {
+    padding: 7px 16px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: 8px;
+    border: 1px solid var(--admin-border);
+    background: #FFFFFF;
+    color: var(--admin-text);
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+  .filter-pill:hover {
+    background: #F3F4F6;
+  }
+  .filter-pill.active {
+    background: var(--admin-primary);
+    color: #FFFFFF;
+    border-color: var(--admin-primary);
+  }
+  .export-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border-radius: 8px;
+    border: 1px solid var(--admin-border);
+    background: #FFFFFF;
+    color: var(--admin-text);
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+  .export-btn:hover {
+    background: #F9FAFB;
+    border-color: #D1D5DB;
+  }
+  .export-btn-pdf:hover { color: #DC2626; border-color: #F87171; background: #FEF2F2; }
+  .export-btn-excel:hover { color: #16A34A; border-color: #86EFAC; background: #F0FDF4; }
+  .export-btn-csv:hover { color: #2563EB; border-color: #93C5FD; background: #EFF6FF; }
+
+  .summary-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .metric-card {
+    background: #FFFFFF;
+    border: 1px solid var(--admin-border);
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  }
+  .metric-card-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--admin-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+  }
+  .metric-card-value {
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: var(--admin-text);
+  }
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    text-align: left;
+  }
+  .data-table th {
+    padding: 12px 14px;
+    border-bottom: 2px solid var(--admin-border);
+    color: var(--admin-muted);
+    font-weight: 700;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: #FAFBFD;
+  }
+  .data-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid #F3F4F6;
+    vertical-align: middle;
+  }
+  .data-table tfoot td {
+    padding: 14px;
+    border-top: 2px solid var(--admin-border);
+    font-weight: 700;
+    background: #FAFBFD;
+  }
+</style>
+{% endblock %}
+
+{% block admin_content %}
+<!-- Filter & Range Selector Bar -->
+<div class="report-filter-bar">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;margin-bottom:16px;border-bottom:1px solid var(--admin-border);padding-bottom:16px;">
+    <div>
+      <span style="font-size:0.8rem;font-weight:700;color:var(--admin-muted);text-transform:uppercase;">Reporting Period</span>
+      <div style="font-size:1.15rem;font-weight:700;color:var(--admin-text);margin-top:2px;">
+        {{ report.start_date.strftime('%d %B %Y') }} &ndash; {{ report.end_date.strftime('%d %B %Y') }}
+      </div>
+    </div>
+
+    <!-- Export Actions -->
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-size:0.8rem;font-weight:700;color:var(--admin-muted);text-transform:uppercase;">Export:</span>
+      <a href="{{ url_for('admin_sales_reports_export', export_format='pdf', period=report.period, start_date=report.start_date_str, end_date=report.end_date_str, sort_by=report.sort_by) }}" class="export-btn export-btn-pdf" title="Export printable PDF report">
+        <i class="fas fa-file-pdf" style="color:#DC2626;"></i> PDF Document
+      </a>
+      <a href="{{ url_for('admin_sales_reports_export', export_format='excel', period=report.period, start_date=report.start_date_str, end_date=report.end_date_str, sort_by=report.sort_by) }}" class="export-btn export-btn-excel" title="Export Excel workbook with formatted sheets">
+        <i class="fas fa-file-excel" style="color:#16A34A;"></i> Excel (.xlsx)
+      </a>
+      <a href="{{ url_for('admin_sales_reports_export', export_format='csv', period=report.period, start_date=report.start_date_str, end_date=report.end_date_str, sort_by=report.sort_by) }}" class="export-btn export-btn-csv" title="Export clean UTF-8 CSV">
+        <i class="fas fa-file-csv" style="color:#2563EB;"></i> CSV Data
+      </a>
+    </div>
+  </div>
+
+  <!-- Filter Buttons and Custom Date Form -->
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
+    <div class="filter-pills">
+      <a href="{{ url_for('admin_sales_reports', period='today', sort_by=report.sort_by) }}" class="filter-pill {% if report.period == 'today' %}active{% endif %}">Today</a>
+      <a href="{{ url_for('admin_sales_reports', period='yesterday', sort_by=report.sort_by) }}" class="filter-pill {% if report.period == 'yesterday' %}active{% endif %}">Yesterday</a>
+      <a href="{{ url_for('admin_sales_reports', period='week', sort_by=report.sort_by) }}" class="filter-pill {% if report.period == 'week' %}active{% endif %}">This Week</a>
+      <a href="{{ url_for('admin_sales_reports', period='month', sort_by=report.sort_by) }}" class="filter-pill {% if report.period == 'month' %}active{% endif %}">This Month</a>
+      <a href="{{ url_for('admin_sales_reports', period='year', sort_by=report.sort_by) }}" class="filter-pill {% if report.period == 'year' %}active{% endif %}">This Year</a>
+    </div>
+
+    <!-- Custom Date Range Form -->
+    <form method="GET" action="{{ url_for('admin_sales_reports') }}" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <input type="hidden" name="period" value="custom">
+      <input type="hidden" name="sort_by" value="{{ report.sort_by }}">
+      
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label for="start_date" style="font-size:0.8rem;font-weight:600;color:var(--admin-muted);">From:</label>
+        <input type="date" id="start_date" name="start_date" value="{{ report.start_date_str }}" required style="padding:6px 10px;border:1px solid var(--admin-border);border-radius:6px;font-size:0.85rem;color:var(--admin-text);">
+      </div>
+
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label for="end_date" style="font-size:0.8rem;font-weight:600;color:var(--admin-muted);">To:</label>
+        <input type="date" id="end_date" name="end_date" value="{{ report.end_date_str }}" required style="padding:6px 10px;border:1px solid var(--admin-border);border-radius:6px;font-size:0.85rem;color:var(--admin-text);">
+      </div>
+
+      <button type="submit" class="btn-admin btn-admin-primary" style="padding:7px 14px;font-size:0.825rem;">
+        <i class="fas fa-filter"></i> Apply
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- Sales Summary Metrics Grid (Accounting KPIs) -->
+<div class="summary-metrics-grid">
+  <!-- Gross Sales -->
+  <div class="metric-card">
+    <div class="metric-card-label">Gross Sales</div>
+    <div class="metric-card-value">₹{{ '%.2f'|format(report.summary.gross_sales) }}</div>
+    <small style="font-size:0.75rem;color:var(--admin-muted);">Item subtotals</small>
+  </div>
+
+  <!-- Discounts Applied -->
+  <div class="metric-card">
+    <div class="metric-card-label">Discounts Applied</div>
+    <div class="metric-card-value" style="color:#B45309;">-₹{{ '%.2f'|format(report.summary.discounts) }}</div>
+    <small style="font-size:0.75rem;color:var(--admin-muted);">Promo & coupons</small>
+  </div>
+
+  <!-- Delivery Fees -->
+  <div class="metric-card">
+    <div class="metric-card-label">Delivery Fees</div>
+    <div class="metric-card-value" style="color:#2563EB;">+₹{{ '%.2f'|format(report.summary.delivery_fees) }}</div>
+    <small style="font-size:0.75rem;color:var(--admin-muted);">Shipping collected</small>
+  </div>
+
+  <!-- Refunds -->
+  <div class="metric-card">
+    <div class="metric-card-label">Total Refunds</div>
+    <div class="metric-card-value" style="color:#B91C1C;">-₹{{ '%.2f'|format(report.summary.refunds) }}</div>
+    <small style="font-size:0.75rem;color:var(--admin-muted);">Returned/refunded</small>
+  </div>
+
+  <!-- Net Revenue -->
+  <div class="metric-card" style="background:#F0FDF4;border-color:#BBF7D0;">
+    <div class="metric-card-label" style="color:#166534;">Net Revenue</div>
+    <div class="metric-card-value" style="color:#15803D;">₹{{ '%.2f'|format(report.summary.net_revenue) }}</div>
+    <small style="font-size:0.75rem;color:#166534;">Realized earnings</small>
+  </div>
+
+  <!-- Completed Orders -->
+  <div class="metric-card">
+    <div class="metric-card-label">Completed Orders</div>
+    <div class="metric-card-value">{{ report.summary.orders_count }}</div>
+    <small style="font-size:0.75rem;color:var(--admin-muted);">Paid orders</small>
+  </div>
+
+  <!-- Average Order Value (AOV) -->
+  <div class="metric-card">
+    <div class="metric-card-label">Average Order Value</div>
+    <div class="metric-card-value">₹{{ '%.2f'|format(report.summary.aov) }}</div>
+    <small style="font-size:0.75rem;color:var(--admin-muted);">Net revenue / orders</small>
+  </div>
+</div>
+
+<!-- Product-Wise Sales Breakdown -->
+<div class="admin-card" style="margin-bottom:24px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px;border-bottom:1px solid var(--admin-border);padding-bottom:12px;">
+    <div>
+      <h3 style="font-size:1.15rem;margin:0;font-weight:700;display:flex;align-items:center;gap:8px;">
+        <i class="fas fa-boxes" style="color:var(--admin-primary);"></i> Product-Wise Performance Breakdown
+      </h3>
+      <p style="font-size:0.8rem;color:var(--admin-muted);margin:4px 0 0 0;">
+        Itemized sales volume, gross value, attributed coupons, and net realized revenue
+      </p>
+    </div>
+
+    <!-- Sort Selector -->
+    <div style="display:flex;align-items:center;gap:8px;font-size:0.85rem;">
+      <span style="color:var(--admin-muted);font-weight:600;">Sort By:</span>
+      <a href="{{ url_for('admin_sales_reports', period=report.period, start_date=report.start_date_str, end_date=report.end_date_str, sort_by='revenue') }}" class="btn-admin {% if report.sort_by == 'revenue' %}btn-admin-primary{% else %}btn-admin-secondary{% endif %}" style="padding:4px 10px;font-size:0.78rem;">
+        Net Revenue
+      </a>
+      <a href="{{ url_for('admin_sales_reports', period=report.period, start_date=report.start_date_str, end_date=report.end_date_str, sort_by='units') }}" class="btn-admin {% if report.sort_by == 'units' %}btn-admin-primary{% else %}btn-admin-secondary{% endif %}" style="padding:4px 10px;font-size:0.78rem;">
+        Units Sold
+      </a>
+    </div>
+  </div>
+
+  {% if report.product_breakdown %}
+    <div style="overflow-x:auto;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width:50px;text-align:center;">#</th>
+            <th>Product Name & SKU</th>
+            <th style="text-align:right;">Units Sold</th>
+            <th style="text-align:right;">Gross Revenue</th>
+            <th style="text-align:right;">Discounts Attributed</th>
+            <th style="text-align:right;">Refunds Attributed</th>
+            <th style="text-align:right;">Net Revenue</th>
+            <th style="text-align:right;">Avg Realized / Unit</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set total_units = namespace(count=0) %}
+          {% set total_gross = namespace(val=0.0) %}
+          {% set total_disc = namespace(val=0.0) %}
+          {% set total_ref = namespace(val=0.0) %}
+          {% set total_net = namespace(val=0.0) %}
+
+          {% for prod in report.product_breakdown %}
+            {% set total_units.count = total_units.count + prod.units_sold %}
+            {% set total_gross.val = total_gross.val + prod.gross_revenue %}
+            {% set total_disc.val = total_disc.val + prod.discount_attributed %}
+            {% set total_ref.val = total_ref.val + (prod.refunds or 0.0) %}
+            {% set total_net.val = total_net.val + prod.net_revenue %}
+
+            <tr>
+              <td style="text-align:center;font-weight:700;color:var(--admin-muted);">{{ loop.index }}</td>
+              <td>
+                <a href="{{ url_for('admin_edit_product', product_id=prod.product_id) }}" style="font-weight:600;color:var(--admin-text);text-decoration:none;">
+                  {{ prod.name }}
+                </a>
+                <div style="font-size:0.75rem;color:var(--admin-muted);">SKU: {{ prod.sku or 'N/A' }}</div>
+              </td>
+              <td style="text-align:right;font-weight:700;">{{ prod.units_sold }}</td>
+              <td style="text-align:right;">₹{{ '%.2f'|format(prod.gross_revenue) }}</td>
+              <td style="text-align:right;color:#B45309;">-₹{{ '%.2f'|format(prod.discount_attributed) }}</td>
+              <td style="text-align:right;color:#B91C1C;">-₹{{ '%.2f'|format(prod.refunds or 0.0) }}</td>
+              <td style="text-align:right;font-weight:700;color:var(--admin-primary);">₹{{ '%.2f'|format(prod.net_revenue) }}</td>
+              <td style="text-align:right;color:var(--admin-muted);">
+                ₹{{ '%.2f'|format(prod.net_revenue / prod.units_sold if prod.units_sold > 0 else 0) }}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2" style="font-weight:700;">Total Period Performance</td>
+            <td style="text-align:right;font-weight:700;">{{ total_units.count }}</td>
+            <td style="text-align:right;font-weight:700;">₹{{ '%.2f'|format(total_gross.val) }}</td>
+            <td style="text-align:right;font-weight:700;color:#B45309;">-₹{{ '%.2f'|format(total_disc.val) }}</td>
+            <td style="text-align:right;font-weight:700;color:#B91C1C;">-₹{{ '%.2f'|format(total_ref.val) }}</td>
+            <td style="text-align:right;font-weight:700;color:var(--admin-primary);">₹{{ '%.2f'|format(total_net.val) }}</td>
+            <td style="text-align:right;font-weight:700;color:var(--admin-muted);">
+              ₹{{ '%.2f'|format(total_net.val / total_units.count if total_units.count > 0 else 0) }}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  {% else %}
+    <div style="text-align:center;padding:36px 0;color:var(--admin-muted);">
+      <i class="fas fa-search" style="font-size:2rem;margin-bottom:8px;display:block;color:#D1D5DB;"></i>
+      No product sales recorded in the selected date range.
+    </div>
+  {% endif %}
+</div>
+
+<!-- Two-Column Section: Payment Method Breakdown & Order Status Report -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(360px, 1fr));gap:24px;">
+
+  <!-- Payment Method Breakdown -->
+  <div class="admin-card">
+    <div style="margin-bottom:18px;border-bottom:1px solid var(--admin-border);padding-bottom:12px;">
+      <h3 style="font-size:1.1rem;margin:0;font-weight:700;display:flex;align-items:center;gap:8px;">
+        <i class="fas fa-credit-card" style="color:var(--admin-accent);"></i> Payment Methods Distribution
+      </h3>
+      <p style="font-size:0.8rem;color:var(--admin-muted);margin:4px 0 0 0;">
+        Channel breakdown between online gateways and offline collections
+      </p>
+    </div>
+
+    {% if report.payment_breakdown %}
+      <div style="overflow-x:auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th style="text-align:right;">Orders</th>
+              <th style="text-align:right;">Amount Collected</th>
+              <th style="text-align:right;">Share %</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for pm in report.payment_breakdown %}
+              <tr>
+                <td style="font-weight:600;">
+                  {% if 'Razorpay' in pm.name %}
+                    <i class="fas fa-bolt" style="color:#0284C7;margin-right:6px;"></i>
+                  {% elif 'COD' in pm.name or 'Cash' in pm.name %}
+                    <i class="fas fa-money-bill-wave" style="color:#16A34A;margin-right:6px;"></i>
+                  {% else %}
+                    <i class="fas fa-credit-card" style="color:var(--admin-muted);margin-right:6px;"></i>
+                  {% endif %}
+                  {{ pm.name }}
+                </td>
+                <td style="text-align:right;">{{ pm.orders_count }}</td>
+                <td style="text-align:right;font-weight:700;">₹{{ '%.2f'|format(pm.total_collected) }}</td>
+                <td style="text-align:right;font-weight:600;color:var(--admin-primary);">
+                  {{ '%.1f'|format(pm.percentage) }}%
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p style="color:var(--admin-muted);font-size:0.875rem;text-align:center;padding:24px 0;">
+        No payment transactions in this period.
+      </p>
+    {% endif %}
+  </div>
+
+  <!-- Order Status Report -->
+  <div class="admin-card">
+    <div style="margin-bottom:18px;border-bottom:1px solid var(--admin-border);padding-bottom:12px;">
+      <h3 style="font-size:1.1rem;margin:0;font-weight:700;display:flex;align-items:center;gap:8px;">
+        <i class="fas fa-tasks" style="color:var(--admin-primary);"></i> Order Status Summary
+      </h3>
+      <p style="font-size:0.8rem;color:var(--admin-muted);margin:4px 0 0 0;">
+        Fulfillment lifecycle stages for orders created within this date range
+      </p>
+    </div>
+
+    {% if report.status_breakdown %}
+      <div style="overflow-x:auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th style="text-align:right;">Orders</th>
+              <th style="text-align:right;">Order Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for st in report.status_breakdown %}
+              <tr>
+                <td>
+                  <span class="badge-status" style="background:{% if st.status == 'Delivered' %}#DCFCE7;color:#166534;{% elif st.status in ['Cancelled', 'Returned'] %}#FEE2E2;color:#991B1B;{% elif st.status in ['Shipped', 'Confirmed'] %}#DBEAFE;color:#1E40AF;{% else %}#FEF3C7;color:#92400E;{% endif %}">
+                    {{ st.status }}
+                  </span>
+                </td>
+                <td style="text-align:right;font-weight:700;">{{ st.count }}</td>
+                <td style="text-align:right;font-weight:700;">₹{{ '%.2f'|format(st.total_value) }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p style="color:var(--admin-muted);font-size:0.875rem;text-align:center;padding:24px 0;">
+        No orders found in this period.
+      </p>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

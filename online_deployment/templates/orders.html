@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+
+{% block title %}My Orders | COSTUME STORE{% endblock %}
+
+{% block content %}
+<div style="background:var(--secondary-light);border-bottom:1px solid var(--border-color);padding:24px;">
+  <div style="max-width:1400px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+    <div>
+      <h1 style="font-size:2rem;margin:0;">My Order History</h1>
+      <span style="font-size:0.875rem;color:var(--text-muted);">Track your purchases and view historical invoices.</span>
+    </div>
+    <a href="{{ url_for('profile') }}" class="btn btn-secondary btn-sm">&larr; Back to Dashboard</a>
+  </div>
+</div>
+
+<div style="max-width:1400px;margin:36px auto;padding:0 24px;">
+  {% if orders %}
+    <div style="background:#FFFFFF;border:1px solid var(--border-color);border-radius:var(--radius-md);overflow:hidden;box-shadow:var(--shadow-sm);">
+      <table style="width:100%;border-collapse:collapse;font-size:0.9rem;text-align:left;">
+        <thead>
+          <tr style="background:var(--secondary-light);border-bottom:1px solid var(--border-color);color:var(--text-dark);">
+            <th style="padding:14px 20px;">Order #</th>
+            <th style="padding:14px 20px;">Date</th>
+            <th style="padding:14px 20px;">Items</th>
+            <th style="padding:14px 20px;">Total</th>
+            <th style="padding:14px 20px;">Payment</th>
+            <th style="padding:14px 20px;">Status</th>
+            <th style="padding:14px 20px;text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for order in orders %}
+            <tr style="border-bottom:1px solid var(--border-color);">
+              <td style="padding:16px 20px;font-weight:700;color:var(--primary);">
+                #{{ order.order_number }}
+              </td>
+              <td style="padding:16px 20px;color:var(--text-muted);">
+                {{ order.created_at.strftime('%d %b %Y') }}
+              </td>
+              <td style="padding:16px 20px;">
+                {{ order.items|length }} item(s)
+              </td>
+              <td style="padding:16px 20px;font-weight:700;">
+                ₹{{ '%.2f'|format(order.total_amount) }}
+              </td>
+              <td style="padding:16px 20px;">
+                <span class="badge" style="background:{% if order.payment_status == 'paid' %}#E8F5E9;color:#1B5E20;{% else %}#FFF8E1;color:#F57F17;{% endif %}">
+                  {{ order.payment_method|upper }} ({{ order.payment_status }})
+                </span>
+              </td>
+              <td style="padding:16px 20px;">
+                <span class="badge" style="background:{% if order.order_status == 'Delivered' %}#E8F5E9;color:#1B5E20;{% elif order.order_status == 'Cancelled' %}#FFEBEE;color:#C62828;{% else %}#E1F5FE;color:#0277BD;{% endif %}">
+                  {{ order.order_status }}
+                </span>
+              </td>
+              <td style="padding:16px 20px;text-align:right;">
+                <a href="{{ url_for('order_detail', order_id=order.id) }}" class="btn btn-outline btn-sm" style="padding:6px 14px;font-size:0.8rem;">
+                  Track Order
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+      <div style="display:flex;justify-content:center;gap:8px;margin-top:32px;">
+        {% if pagination.has_prev %}
+          <a href="{{ url_for('my_orders', page=pagination.prev_num) }}" class="btn btn-outline btn-sm">&larr; Previous</a>
+        {% endif %}
+        {% for p in pagination.iter_pages() %}
+          {% if p %}
+            <a href="{{ url_for('my_orders', page=p) }}" class="btn btn-sm {% if p == pagination.page %}btn-primary{% else %}btn-outline{% endif %}">{{ p }}</a>
+          {% endif %}
+        {% endfor %}
+        {% if pagination.has_next %}
+          <a href="{{ url_for('my_orders', page=pagination.next_num) }}" class="btn btn-outline btn-sm">Next &rarr;</a>
+        {% endif %}
+      </div>
+    {% endif %}
+  {% else %}
+    <div style="background:#FFFFFF;border:1px solid var(--border-color);border-radius:var(--radius-lg);padding:60px 24px;text-align:center;max-width:540px;margin:40px auto;box-shadow:var(--shadow-sm);">
+      <div style="width:70px;height:70px;border-radius:50%;background:var(--secondary);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:1.8rem;margin:0 auto 16px auto;">
+        <i class="fas fa-box-open"></i>
+      </div>
+      <h2 style="font-size:1.5rem;margin-bottom:8px;">No Orders Found</h2>
+      <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:24px;">You haven't placed any orders yet. Discover our costume collections today!</p>
+      <a href="{{ url_for('shop') }}" class="btn btn-primary btn-sm">Explore All Costumes &rarr;</a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,339 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ product.name }} | COSTUME STORE{% endblock %}
+{% block meta_description %}{{ product.description[:150] }} - Buy online with express shipping.{% endblock %}
+
+{% block content %}
+<div style="background:var(--secondary-light);border-bottom:1px solid var(--border-color);padding:18px 24px;">
+  <div style="max-width:1400px;margin:0 auto;">
+    <nav style="font-size:0.8125rem;color:var(--text-muted);">
+      <a href="{{ url_for('home') }}">Home</a> &nbsp;/&nbsp;
+      <a href="{{ url_for('shop') }}">Costumes</a> &nbsp;/&nbsp;
+      {% if product.category %}
+        <a href="{{ url_for('shop', category=product.category.slug) }}">{{ product.category.name }}</a> &nbsp;/&nbsp;
+      {% endif %}
+      <span style="color:var(--primary);font-weight:600;">{{ product.name }}</span>
+    </nav>
+  </div>
+</div>
+
+<div style="max-width:1400px;margin:40px auto;padding:0 24px;">
+  <div style="display:grid;grid-template-columns:1.1fr 1fr;gap:48px;align-items:start;">
+
+    <!-- ==========================================
+         PRODUCT IMAGES & GALLERY
+         ========================================== -->
+    <div>
+      <div style="position:relative;border-radius:var(--radius-lg);overflow:hidden;background:#F3EFEA;border:1px solid var(--border-color);box-shadow:var(--shadow-sm);margin-bottom:16px;">
+        <img id="mainProductImage" src="{{ product.primary_image }}" alt="{{ product.name }}" onerror="this.src='/static/images/placeholder-costume.jpg';" style="width:100%;height:580px;object-fit:cover;transition:transform 0.4s ease;">
+        {% if product.discount_percent > 0 %}
+          <div style="position:absolute;top:18px;left:18px;">
+            <span class="badge badge-sale" style="font-size:0.85rem;padding:6px 14px;">{{ product.discount_percent }}% OFF</span>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Thumbnails -->
+      {% if product.images|length > 1 %}
+        <div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;">
+          {% for img in product.images %}
+            <div class="gallery-thumb {% if loop.first %}active{% endif %}" data-full-img="{{ img.image_url }}" style="width:84px;height:96px;border-radius:var(--radius-sm);overflow:hidden;border:2px solid {{ 'var(--primary)' if loop.first else 'var(--border-color)' }};cursor:pointer;flex-shrink:0;">
+              <img src="{{ img.image_url }}" alt="Thumbnail {{ loop.index }}" onerror="this.src='/static/images/placeholder-costume.jpg';" style="width:100%;height:100%;object-fit:cover;">
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- ==========================================
+         PRODUCT DETAILS & VARIANT SELECTION
+         ========================================== -->
+    <div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
+        <div>
+          <span style="font-size:0.8rem;text-transform:uppercase;color:var(--text-muted);letter-spacing:0.06em;font-weight:700;">
+            {{ product.brand }} &bull; {{ product.category.name if product.category else 'Exclusive' }}
+          </span>
+          <h1 style="font-size:2.2rem;line-height:1.2;margin:6px 0 12px 0;">{{ product.name }}</h1>
+        </div>
+
+        <button class="wishlist-toggle {% if in_wishlist %}active{% endif %}" data-product-id="{{ product.id }}" title="Wishlist" style="position:static;width:44px;height:44px;border:1px solid var(--border-color);">
+          <i class="{{ 'fas' if in_wishlist else 'far' }} fa-heart" style="font-size:1.2rem;"></i>
+        </button>
+      </div>
+
+      <!-- Rating Display -->
+      {% if product.average_rating %}
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+          <div style="color:var(--accent);font-size:1rem;">
+            {% for i in range(5) %}
+              <i class="fas fa-star{% if i >= product.average_rating|int %}-half-alt{% endif %}"></i>
+            {% endfor %}
+          </div>
+          <span style="font-weight:700;font-size:0.9rem;">{{ product.average_rating }} / 5.0</span>
+          <span style="color:var(--text-muted);font-size:0.85rem;">({{ product.review_count }} verified buyer reviews)</span>
+        </div>
+      {% endif %}
+
+      <!-- Pricing Breakdown -->
+      <div style="display:flex;align-items:baseline;gap:14px;margin-bottom:24px;border-bottom:1px solid var(--border-color);padding-bottom:18px;">
+        <span class="current-price" id="livePriceDisplay" style="font-size:2rem;">₹{{ '%.2f'|format(product.effective_price) }}</span>
+        {% if product.discount_price and product.discount_price < product.base_price %}
+          <span class="original-price" style="font-size:1.2rem;">₹{{ '%.2f'|format(product.base_price) }}</span>
+          <span class="badge badge-sale" style="font-size:0.85rem;">SAVE ₹{{ '%.2f'|format(product.base_price - product.discount_price) }}</span>
+        {% endif %}
+        <span style="font-size:0.8rem;color:var(--text-muted);margin-left:auto;">Inclusive of all taxes</span>
+      </div>
+
+      <!-- Product Purchase Form with Variants -->
+      <form action="{{ url_for('add_to_cart') }}" method="POST" id="productPurchaseForm" data-product-id="{{ product.id }}">
+        <input type="hidden" name="product_id" value="{{ product.id }}">
+        <input type="hidden" name="variant_id" id="selectedVariantId" value="{% if product.variants %}{{ product.variants[0].id }}{% endif %}">
+        <input type="hidden" name="size" id="selectedSize" value="{% if product.available_sizes %}{{ product.available_sizes[0] }}{% endif %}">
+        <input type="hidden" name="colour" id="selectedColour" value="{% if product.available_colours %}{{ product.available_colours[0].name }}{% endif %}">
+
+        <!-- Size Selection -->
+        <div style="margin-bottom:20px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <label style="font-weight:700;font-size:0.925rem;color:var(--text-dark);">
+              Select Size: <span id="currentSizeLabel" style="font-weight:500;color:var(--primary);">{% if product.available_sizes %}{{ product.available_sizes[0] }}{% endif %}</span>
+            </label>
+            <button type="button" onclick="document.getElementById('sizeGuideModal').style.display='flex';" style="background:none;border:none;color:var(--primary);font-size:0.85rem;font-weight:600;cursor:pointer;text-decoration:underline;">
+              <i class="fas fa-ruler-combined"></i> Size Guide
+            </button>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;">
+            {% for s in product.available_sizes %}
+              <button type="button" class="size-option {% if loop.first %}selected{% endif %}" data-size="{{ s }}" style="padding:10px 18px;border:1.5px solid {{ 'var(--primary)' if loop.first else 'var(--border-color)' }};background:{{ 'var(--secondary)' if loop.first else '#FFF' }};color:{{ 'var(--primary)' if loop.first else 'var(--text-dark)' }};border-radius:var(--radius-sm);font-weight:700;font-size:0.9rem;cursor:pointer;">
+                {{ s }}
+              </button>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Colour Selection -->
+        <div style="margin-bottom:24px;">
+          <label style="font-weight:700;font-size:0.925rem;color:var(--text-dark);display:block;margin-bottom:10px;">
+            Select Colour: <span id="currentColourLabel" style="font-weight:500;color:var(--primary);">{% if product.available_colours %}{{ product.available_colours[0].name }}{% endif %}</span>
+          </label>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;">
+            {% for c in product.available_colours %}
+              <button type="button" class="colour-option {% if loop.first %}selected{% endif %}" data-colour="{{ c.name }}" title="{{ c.name }}" style="display:flex;align-items:center;gap:8px;padding:8px 14px;border:1.5px solid {{ 'var(--primary)' if loop.first else 'var(--border-color)' }};background:#FFF;border-radius:var(--radius-pill);cursor:pointer;font-size:0.85rem;font-weight:600;">
+                <span style="width:16px;height:16px;border-radius:50%;background:{{ c.code }};border:1px solid rgba(0,0,0,0.15);display:inline-block;"></span>
+                {{ c.name }}
+              </button>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Stock Availability Feedback -->
+        <div id="variantStockBadge" style="margin-bottom:24px;font-size:0.9rem;font-weight:600;">
+          {% if product.in_stock %}
+            <span class="text-success" style="color:var(--success);"><i class="fas fa-check-circle"></i> In Stock & Ready to Ship</span>
+          {% else %}
+            <span class="text-danger" style="color:var(--danger);"><i class="fas fa-times-circle"></i> Currently Out of Stock</span>
+          {% endif %}
+        </div>
+
+        <!-- Quantity & Actions -->
+        <div style="display:flex;gap:16px;align-items:center;margin-bottom:30px;flex-wrap:wrap;">
+          <!-- Quantity Stepper -->
+          <div style="display:flex;align-items:center;border:1px solid var(--border-color);border-radius:var(--radius-pill);background:#FFF;padding:4px;">
+            <button type="button" class="qty-btn-minus" style="width:36px;height:36px;border:none;background:none;font-size:1.1rem;cursor:pointer;color:var(--text-dark);">&minus;</button>
+            <input type="number" id="quantityInput" name="quantity" value="1" min="1" max="99" style="width:44px;border:none;text-align:center;font-weight:700;font-size:1rem;outline:none;" readonly>
+            <button type="button" class="qty-btn-plus" style="width:36px;height:36px;border:none;background:none;font-size:1.1rem;cursor:pointer;color:var(--text-dark);">&plus;</button>
+          </div>
+
+          <!-- Add to Cart Button -->
+          <button type="submit" id="addToCartBtn" class="btn btn-primary btn-lg" style="flex:1;min-width:200px;" {% if not product.in_stock %}disabled{% endif %}>
+            <i class="fas fa-shopping-bag"></i> Add to Bag
+          </button>
+
+          <!-- Buy Now Button -->
+          <button type="submit" name="buy_now" value="1" id="buyNowBtn" class="btn btn-accent btn-lg" style="flex:1;min-width:160px;" {% if not product.in_stock %}disabled{% endif %}>
+            <i class="fas fa-bolt"></i> Buy Now
+          </button>
+        </div>
+      </form>
+
+      <!-- Trust Badges Under Purchase Button -->
+      <div style="background:var(--secondary-light);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:16px 20px;display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:0.85rem;margin-bottom:32px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <i class="fas fa-truck" style="color:var(--primary);font-size:1.1rem;"></i>
+          <span>Dispatched in 24 hours</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <i class="fas fa-undo-alt" style="color:var(--primary);font-size:1.1rem;"></i>
+          <span>7-day size exchange</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <i class="fas fa-certificate" style="color:var(--primary);font-size:1.1rem;"></i>
+          <span>100% Genuine brand new</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <i class="fas fa-money-bill-wave" style="color:var(--primary);font-size:1.1rem;"></i>
+          <span>Cash on delivery available</span>
+        </div>
+      </div>
+
+      <!-- Description & Accordions -->
+      <div style="border-top:1px solid var(--border-color);padding-top:24px;">
+        <h3 style="font-size:1.25rem;margin-bottom:12px;">Product Overview</h3>
+        <p style="color:var(--text-body);line-height:1.7;font-size:0.95rem;margin-bottom:20px;white-space:pre-line;">
+          {{ product.description }}
+        </p>
+
+        {% if product.details %}
+          <div style="background:#FFFFFF;border:1px solid var(--border-color);border-radius:var(--radius-md);padding:18px 20px;margin-bottom:24px;">
+            <h4 style="font-size:0.95rem;text-transform:uppercase;letter-spacing:0.05em;color:var(--primary);margin-bottom:10px;">Specifications & Package Contents</h4>
+            <div style="font-size:0.875rem;line-height:1.6;color:var(--text-body);white-space:pre-line;">
+              {{ product.details }}
+            </div>
+          </div>
+        {% endif %}
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ==========================================
+       CUSTOMER REVIEWS SECTION
+       ========================================== -->
+  <section style="margin-top:60px;border-top:1px solid var(--border-color);padding-top:40px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:30px;flex-wrap:wrap;gap:16px;">
+      <div>
+        <h2 style="font-size:1.8rem;margin:0;">Verified Customer Reviews</h2>
+        <p style="color:var(--text-muted);font-size:0.9rem;margin-top:4px;">Read genuine feedback from verified buyers who wore this costume.</p>
+      </div>
+
+      {% if current_user %}
+        <button onclick="document.getElementById('reviewFormContainer').style.display='block';" class="btn btn-outline btn-sm">
+          <i class="fas fa-pen"></i> Write a Review
+        </button>
+      {% endif %}
+    </div>
+
+    <!-- Review Form for Logged In Customers -->
+    {% if current_user %}
+      <div id="reviewFormContainer" style="display:none;background:#FFFFFF;border:1px solid var(--border-color);border-radius:var(--radius-md);padding:24px;margin-bottom:32px;box-shadow:var(--shadow-sm);">
+        <h4 style="margin-bottom:16px;">Share Your Review</h4>
+        <form action="{{ url_for('add_review', product_id=product.id) }}" method="POST">
+          <div style="margin-bottom:16px;">
+            <label style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:6px;">Your Rating (1 to 5 Stars):</label>
+            <select name="rating" required style="padding:8px 14px;border:1px solid var(--border-color);border-radius:var(--radius-sm);font-size:0.9rem;">
+              <option value="5">⭐⭐⭐⭐⭐ (5 Stars - Outstanding Quality)</option>
+              <option value="4">⭐⭐⭐⭐ (4 Stars - Great)</option>
+              <option value="3">⭐⭐⭐ (3 Stars - Average)</option>
+              <option value="2">⭐⭐ (2 Stars - Below Expectations)</option>
+              <option value="1">⭐ (1 Star - Poor)</option>
+            </select>
+          </div>
+          <div style="margin-bottom:16px;">
+            <label style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:6px;">Your Comments & Feedback on Sizing/Fit:</label>
+            <textarea name="comment" rows="4" required placeholder="How did the costume fit? How was the fabric and stage appearance?" style="width:100%;padding:12px;border:1px solid var(--border-color);border-radius:var(--radius-sm);font-size:0.9rem;outline:none;"></textarea>
+          </div>
+          <div style="display:flex;gap:12px;">
+            <button type="submit" class="btn btn-primary btn-sm">Submit Review</button>
+            <button type="button" onclick="document.getElementById('reviewFormContainer').style.display='none';" class="btn btn-secondary btn-sm">Cancel</button>
+          </div>
+        </form>
+      </div>
+    {% endif %}
+
+    <!-- Reviews List -->
+    {% if product.reviews %}
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:20px;">
+        {% for review in product.reviews %}
+          <div style="background:#FFFFFF;border:1px solid var(--border-color);border-radius:var(--radius-md);padding:20px;box-shadow:var(--shadow-sm);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <span style="font-weight:700;font-size:0.9rem;">{{ review.user.name if review.user else 'Verified Buyer' }}</span>
+              <span style="font-size:0.75rem;color:var(--text-muted);">{{ review.created_at.strftime('%d %b %Y') }}</span>
+            </div>
+            <div style="color:var(--accent);font-size:0.85rem;margin-bottom:10px;">
+              {% for i in range(review.rating) %}<i class="fas fa-star"></i>{% endfor %}
+            </div>
+            <p style="font-size:0.875rem;color:var(--text-body);line-height:1.6;margin:0;">
+              "{{ review.comment }}"
+            </p>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div style="background:#FFFFFF;border:1px dashed var(--border-color);border-radius:var(--radius-md);padding:30px;text-align:center;color:var(--text-muted);font-size:0.9rem;">
+        No reviews yet for this product. Be the first to share your experience!
+      </div>
+    {% endif %}
+  </section>
+
+  <!-- ==========================================
+       RELATED COSTUMES
+       ========================================== -->
+  {% if related_products %}
+    <section style="margin-top:70px;border-top:1px solid var(--border-color);padding-top:40px;">
+      <h2 style="font-size:1.8rem;margin-bottom:28px;">You May Also Like</h2>
+      <div class="product-grid">
+        {% for rel in related_products %}
+          <div class="product-card">
+            <div class="product-thumb">
+              <a href="{{ url_for('product_details', product_id=rel.id) }}">
+                <img src="{{ rel.primary_image }}" alt="{{ rel.name }}" loading="lazy">
+              </a>
+            </div>
+            <div class="product-body">
+              <span class="product-category">{{ rel.category.name if rel.category else 'Costume' }}</span>
+              <h3 class="product-title">
+                <a href="{{ url_for('product_details', product_id=rel.id) }}">{{ rel.name }}</a>
+              </h3>
+              <div class="product-prices">
+                <span class="current-price">₹{{ '%.2f'|format(rel.effective_price) }}</span>
+                {% if rel.discount_price and rel.discount_price < rel.base_price %}
+                  <span class="original-price">₹{{ '%.2f'|format(rel.base_price) }}</span>
+                {% endif %}
+              </div>
+              <div style="margin-top:auto;">
+                <a href="{{ url_for('product_details', product_id=rel.id) }}" class="btn btn-outline btn-sm" style="width:100%;">
+                  View Details
+                </a>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
+</div>
+
+<!-- ==========================================
+     SIZE GUIDE MODAL
+     ========================================== -->
+<div id="sizeGuideModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#FFFFFF;border-radius:var(--radius-lg);max-width:650px;width:100%;padding:32px;box-shadow:var(--shadow-lg);position:relative;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid var(--border-color);padding-bottom:12px;">
+      <h3 style="font-size:1.4rem;margin:0;"><i class="fas fa-ruler-combined" style="color:var(--primary);margin-right:8px;"></i> Costume Size Guide & Measurement Chart</h3>
+      <button onclick="document.getElementById('sizeGuideModal').style.display='none';" style="background:none;border:none;font-size:1.5rem;cursor:pointer;">&times;</button>
+    </div>
+    <p style="font-size:0.875rem;color:var(--text-muted);margin-bottom:16px;">All measurements are in inches. For theatrical loose garments or children, selecting one size larger is recommended.</p>
+    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;margin-bottom:20px;">
+      <thead>
+        <tr style="background:var(--secondary);color:var(--text-dark);text-align:left;">
+          <th style="padding:10px;border:1px solid var(--border-color);">Size</th>
+          <th style="padding:10px;border:1px solid var(--border-color);">Chest / Bust</th>
+          <th style="padding:10px;border:1px solid var(--border-color);">Waist</th>
+          <th style="padding:10px;border:1px solid var(--border-color);">Recommended Height</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td style="padding:10px;border:1px solid var(--border-color);font-weight:700;">S</td><td style="padding:10px;border:1px solid var(--border-color);">34" - 36"</td><td style="padding:10px;border:1px solid var(--border-color);">28" - 30"</td><td style="padding:10px;border:1px solid var(--border-color);">5'2" - 5'6"</td></tr>
+        <tr style="background:#FAF8F5;"><td style="padding:10px;border:1px solid var(--border-color);font-weight:700;">M</td><td style="padding:10px;border:1px solid var(--border-color);">38" - 40"</td><td style="padding:10px;border:1px solid var(--border-color);">32" - 34"</td><td style="padding:10px;border:1px solid var(--border-color);">5'6" - 5'10"</td></tr>
+        <tr><td style="padding:10px;border:1px solid var(--border-color);font-weight:700;">L</td><td style="padding:10px;border:1px solid var(--border-color);">42" - 44"</td><td style="padding:10px;border:1px solid var(--border-color);">36" - 38"</td><td style="padding:10px;border:1px solid var(--border-color);">5'9" - 6'1"</td></tr>
+        <tr style="background:#FAF8F5;"><td style="padding:10px;border:1px solid var(--border-color);font-weight:700;">XL</td><td style="padding:10px;border:1px solid var(--border-color);">46" - 48"</td><td style="padding:10px;border:1px solid var(--border-color);">40" - 42"</td><td style="padding:10px;border:1px solid var(--border-color);">6'0" - 6'4"</td></tr>
+        <tr><td style="padding:10px;border:1px solid var(--border-color);font-weight:700;">Kids (4-6Y)</td><td style="padding:10px;border:1px solid var(--border-color);">24" - 26"</td><td style="padding:10px;border:1px solid var(--border-color);">22" - 24"</td><td style="padding:10px;border:1px solid var(--border-color);">3'3" - 3'9"</td></tr>
+      </tbody>
+    </table>
+    <div style="text-align:right;">
+      <button onclick="document.getElementById('sizeGuideModal').style.display='none';" class="btn btn-primary btn-sm">Got It</button>
+    </div>
+  </div>
+</div>
+{% endblock %}

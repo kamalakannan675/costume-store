@@ -1,0 +1,113 @@
+{% extends 'admin/base.html' %}
+
+{% block page_title %}Payment Transactions Management{% endblock %}
+
+{% block admin_content %}
+<div class="admin-card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:14px;">
+    <div>
+      <h3 style="font-size:1.25rem;margin:0;">Gateway Payment Transactions ({{ pagination.total }})</h3>
+      <span style="font-size:0.85rem;color:var(--admin-muted);">Audit Razorpay gateway orders, payment IDs, amounts, and transaction outcomes.</span>
+    </div>
+  </div>
+
+  <!-- Status Filter Pills -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;">
+    {% set all_statuses = ['created', 'paid', 'failed', 'verification_failed'] %}
+    <a href="{{ url_for('admin_payments', search=search) }}" class="btn-admin {% if not status_filter %}btn-admin-primary{% else %}btn-admin-secondary{% endif %}" style="padding:6px 14px;font-size:0.8rem;">
+      All Transactions
+    </a>
+    {% for st in all_statuses %}
+      <a href="{{ url_for('admin_payments', status=st, search=search) }}" class="btn-admin {% if status_filter == st %}btn-admin-primary{% else %}btn-admin-secondary{% endif %}" style="padding:6px 14px;font-size:0.8rem;">
+        {{ st|capitalize }}
+      </a>
+    {% endfor %}
+  </div>
+
+  <!-- Search Input -->
+  <form action="{{ url_for('admin_payments') }}" method="GET" style="display:flex;gap:12px;margin-bottom:24px;">
+    <input type="text" name="search" value="{{ search or '' }}" placeholder="Search by Gateway Order ID or Payment ID..." style="flex:1;padding:10px 14px;border:1px solid var(--admin-border);border-radius:6px;outline:none;font-size:0.9rem;">
+    {% if status_filter %}
+      <input type="hidden" name="status" value="{{ status_filter }}">
+    {% endif %}
+    <button type="submit" class="btn-admin btn-admin-secondary">Search</button>
+  </form>
+
+  <!-- Transactions Table -->
+  <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;text-align:left;">
+      <thead>
+        <tr style="border-bottom:2px solid var(--admin-border);background:#F9FAFB;color:var(--admin-muted);">
+          <th style="padding:12px;">TXN #</th>
+          <th style="padding:12px;">Date & Time</th>
+          <th style="padding:12px;">Gateway Order ID</th>
+          <th style="padding:12px;">Gateway Payment ID</th>
+          <th style="padding:12px;">Amount</th>
+          <th style="padding:12px;">Status</th>
+          <th style="padding:12px;">Linked Order</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for txn in transactions %}
+          <tr style="border-bottom:1px solid var(--admin-border);">
+            <td style="padding:12px;font-weight:700;color:var(--admin-primary);">
+              #{{ txn.id }}
+            </td>
+            <td style="padding:12px;color:var(--admin-muted);">
+              {{ txn.created_at.strftime('%d %b %Y, %I:%M %p') }}
+            </td>
+            <td style="padding:12px;font-family:monospace;font-size:0.85rem;">
+              {{ txn.gateway_order_id }}
+            </td>
+            <td style="padding:12px;font-family:monospace;font-size:0.85rem;">
+              {{ txn.gateway_payment_id or '—' }}
+            </td>
+            <td style="padding:12px;font-weight:700;">
+              ₹{{ '%.2f'|format(txn.amount_paise / 100) }}
+            </td>
+            <td style="padding:12px;">
+              {% if txn.status == 'paid' %}
+                <span style="display:inline-block;padding:3px 8px;border-radius:4px;font-size:0.75rem;font-weight:700;background:#DCFCE7;color:#166534;">PAID</span>
+              {% elif txn.status == 'created' %}
+                <span style="display:inline-block;padding:3px 8px;border-radius:4px;font-size:0.75rem;font-weight:700;background:#FEF3C7;color:#92400E;">PENDING</span>
+              {% else %}
+                <span style="display:inline-block;padding:3px 8px;border-radius:4px;font-size:0.75rem;font-weight:700;background:#FEE2E2;color:#991B1B;">{{ txn.status|upper }}</span>
+              {% endif %}
+            </td>
+            <td style="padding:12px;">
+              {% if txn.order_id %}
+                <a href="{{ url_for('admin_order_detail', order_id=txn.order_id) }}" class="btn-admin btn-admin-secondary" style="padding:4px 10px;font-size:0.75rem;">
+                  View Order #{{ txn.order_id }}
+                </a>
+              {% else %}
+                <span style="color:var(--admin-muted);font-size:0.8rem;">None</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="7" style="padding:32px;text-align:center;color:var(--admin-muted);">
+              No payment transactions found matching the filter criteria.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if pagination.pages > 1 %}
+    <div style="display:flex;justify-content:center;gap:8px;margin-top:24px;">
+      {% if pagination.has_prev %}
+        <a href="{{ url_for('admin_payments', page=pagination.prev_num, status=status_filter, search=search) }}" class="btn-admin btn-admin-secondary">&laquo; Previous</a>
+      {% endif %}
+      <span style="padding:8px 14px;font-size:0.875rem;color:var(--admin-muted);">
+        Page {{ pagination.page }} of {{ pagination.pages }}
+      </span>
+      {% if pagination.has_next %}
+        <a href="{{ url_for('admin_payments', page=pagination.next_num, status=status_filter, search=search) }}" class="btn-admin btn-admin-secondary">Next &raquo;</a>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

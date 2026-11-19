@@ -1,0 +1,59 @@
+# Environment & Secrets (Never commit actual credentials or secrets)
+.env
+.env.*
+.env.local
+.env.production
+!.env.example
+online_deployment/.env
+online_deployment/.env.*
+!online_deployment/.env.example
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Databases & Backups (NEVER commit live, development or test SQLite databases)
+instance/*.db
+instance/*.sqlite
+instance/*.sqlite3
+instance/backups/
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+*.tmp
+*.log
+tests/*.db
+online_deployment/instance/*.db
+online_deployment/instance/*.sqlite
+online_deployment/instance/backups/
+
+# Working AI & Isolated Folders
+isolated_files/
+antigravity_files/
+
+# Uploaded test media (retain folder structure via .gitkeep)
+static/uploads/products/*
+!static/uploads/products/.gitkeep
+online_deployment/static/uploads/products/*
+!online_deployment/static/uploads/products/.gitkeep
+
+# Archives & IDE Configurations
+*.zip
+*.tar.gz
+*.rar
+.vscode/
+.idea/

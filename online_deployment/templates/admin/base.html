@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Admin Dashboard | COSTUME STORE{% endblock %}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --admin-primary: #5B1427;
+      --admin-primary-dark: #3F0C1A;
+      --admin-accent: #C5A059;
+      --admin-bg: #F4F6F9;
+      --admin-sidebar: #1E1216;
+      --admin-card: #FFFFFF;
+      --admin-text: #222222;
+      --admin-muted: #737373;
+      --admin-border: #E5E7EB;
+      --admin-success: #15803D;
+      --admin-warning: #B45309;
+      --admin-danger: #B91C1C;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; font-family:'Plus Jakarta Sans', sans-serif; }
+    body { background:var(--admin-bg); color:var(--admin-text); display:flex; min-height:100vh; }
+    
+    /* Sidebar */
+    .admin-sidebar {
+      width: 260px;
+      background: var(--admin-sidebar);
+      color: #E2D9DC;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+    .admin-brand {
+      padding: 24px 20px;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #FFFFFF;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      letter-spacing: 0.05em;
+    }
+    .admin-brand span { color: var(--admin-accent); }
+    .admin-nav { list-style: none; padding: 20px 12px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
+    .admin-nav a {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 16px;
+      color: #CFC5C8;
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+    }
+    .admin-nav a:hover, .admin-nav a.active {
+      background: var(--admin-primary);
+      color: #FFFFFF;
+    }
+    .admin-nav a i { width: 20px; text-align: center; font-size: 1.05rem; }
+    
+    /* Main Content Area */
+    .admin-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    .admin-topbar {
+      background: #FFFFFF;
+      border-bottom: 1px solid var(--admin-border);
+      padding: 16px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .admin-body { padding: 32px; flex: 1; max-width: 1400px; width: 100%; margin: 0 auto; }
+    
+    /* Cards & Components */
+    .admin-card {
+      background: #FFFFFF;
+      border: 1px solid var(--admin-border);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+      margin-bottom: 24px;
+    }
+    .btn-admin {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 18px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .btn-admin-primary { background: var(--admin-primary); color: #FFF; }
+    .btn-admin-primary:hover { background: var(--admin-primary-dark); }
+    .btn-admin-secondary { background: #E5E7EB; color: #374151; }
+    .btn-admin-secondary:hover { background: #D1D5DB; }
+    .badge-status {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+  </style>
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="admin-sidebar">
+    <div class="admin-brand">
+      <i class="fas fa-mask" style="color:var(--admin-accent);"></i>
+      <span>COSTUME</span> ADMIN
+    </div>
+
+    <ul class="admin-nav">
+      <li><a href="{{ url_for('admin_dashboard') }}" class="{% if request.path == url_for('admin_dashboard') %}active{% endif %}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+      <li><a href="{{ url_for('admin_sales_reports') }}" class="{% if 'sales-report' in request.path %}active{% endif %}"><i class="fas fa-chart-line"></i> Sales Reports</a></li>
+      <li><a href="{{ url_for('admin_products') }}" class="{% if 'product' in request.path and 'add' not in request.path %}active{% endif %}"><i class="fas fa-tshirt"></i> Products Catalog</a></li>
+      <li><a href="{{ url_for('admin_add_product') }}" class="{% if 'products/add' in request.path %}active{% endif %}"><i class="fas fa-plus-circle"></i> Add New Product</a></li>
+      <li><a href="{{ url_for('admin_categories') }}" class="{% if 'categories' in request.path %}active{% endif %}"><i class="fas fa-tags"></i> Categories</a></li>
+      <li><a href="{{ url_for('admin_orders') }}" class="{% if 'orders' in request.path %}active{% endif %}"><i class="fas fa-shopping-cart"></i> Orders & Delivery</a></li>
+      <li><a href="{{ url_for('admin_payments') }}" class="{% if 'payments' in request.path %}active{% endif %}"><i class="fas fa-credit-card"></i> Payment Transactions</a></li>
+      <li><a href="{{ url_for('admin_customers') }}" class="{% if 'customers' in request.path %}active{% endif %}"><i class="fas fa-users"></i> Customers</a></li>
+      <li><a href="{{ url_for('admin_reviews') }}" class="{% if 'reviews' in request.path %}active{% endif %}"><i class="fas fa-star"></i> Customer Reviews</a></li>
+      <li><a href="{{ url_for('admin_contact_messages') }}" class="{% if 'messages' in request.path %}active{% endif %}"><i class="fas fa-envelope"></i> Contact Messages</a></li>
+      <li><a href="{{ url_for('admin_coupons') }}" class="{% if 'coupons' in request.path %}active{% endif %}"><i class="fas fa-percent"></i> Promo Coupons</a></li>
+      <li><a href="{{ url_for('admin_settings') }}" class="{% if 'settings' in request.path %}active{% endif %}"><i class="fas fa-cog"></i> Store Settings</a></li>
+      
+      <li style="margin-top:20px;border-top:1px solid rgba(255,255,255,0.08);padding-top:16px;">
+        <a href="{{ url_for('logout') }}" style="color:#FCA5A5;"><i class="fas fa-sign-out-alt"></i> Log Out Admin</a>
+      </li>
+    </ul>
+  </aside>
+
+  <!-- Main View -->
+  <div class="admin-main">
+    <header class="admin-topbar">
+      <div>
+        <h2 style="font-size:1.25rem;margin:0;font-weight:700;">{% block page_title %}Store Management{% endblock %}</h2>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;">
+        <span style="font-size:0.875rem;color:var(--admin-muted);">Signed in as <strong>Administrator</strong></span>
+      </div>
+    </header>
+
+    <!-- Flash Messages in Admin -->
+    <div style="padding:16px 32px 0 32px;">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div style="padding:12px 18px;border-radius:6px;margin-bottom:12px;font-size:0.9rem;background:{% if category in ['danger', 'error'] %}#FEE2E2;color:#991B1B;{% elif category == 'success' %}#DCFCE7;color:#166534;{% else %}#FEF3C7;color:#92400E;{% endif %}display:flex;justify-content:space-between;align-items:center;">
+              <span>{{ message }}</span>
+              <button onclick="this.parentElement.remove();" style="background:none;border:none;cursor:pointer;font-size:1.1rem;color:inherit;">&times;</button>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+    </div>
+
+    <div class="admin-body">
+      {% block admin_content %}{% endblock %}
+    </div>
+  </div>
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Razorpay Secure Checkout | COSTUME STORE</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: #F9F7F4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      color: #1E1E1E;
+      padding: 20px;
+    }
+    .payment-box {
+      background: #FFFFFF;
+      padding: 40px;
+      border-radius: 16px;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 16px 40px rgba(30, 30, 30, 0.08);
+      border: 1px solid #E8E2D8;
+    }
+    .btn-pay {
+      background: #5B1427;
+      color: #FFFFFF;
+      border: none;
+      padding: 14px 28px;
+      font-size: 1rem;
+      font-weight: 700;
+      border-radius: 9999px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      justify-content: center;
+      margin-top: 24px;
+      box-shadow: 0 4px 14px rgba(91, 20, 39, 0.25);
+    }
+    .btn-pay:hover {
+      background: #3F0C1A;
+    }
+  </style>
+</head>
+<body>
+
+<div class="payment-box">
+  <div style="font-size: 2.2rem; color: #5B1427; margin-bottom: 12px;">
+    <i class="fas fa-shield-alt"></i>
+  </div>
+  <h2 style="margin: 0 0 8px 0; font-size: 1.5rem;">COSTUME STORE</h2>
+  <p style="color: #666; font-size: 0.9rem; margin: 0 0 20px 0;">Order Ref: <strong>#{{ order_number }}</strong></p>
+
+  <div style="background: #F4EFE6; padding: 18px; border-radius: 10px; margin-bottom: 20px;">
+    <span style="font-size: 0.85rem; color: #666; display: block;">Total Payable Amount</span>
+    <strong style="font-size: 1.8rem; color: #5B1427;">₹{{ '%.2f'|format(amount_paise / 100) }}</strong>
+  </div>
+
+  <p style="font-size: 0.85rem; color: #777; line-height: 1.5;">
+    Click below to open the Razorpay secure gateway window. You can complete payment using UPI, Cards, Net Banking, or Wallets.
+  </p>
+
+  <button id="pay-btn" class="btn-pay">
+    <i class="fas fa-lock"></i> Pay ₹{{ '%.2f'|format(amount_paise / 100) }} Now
+  </button>
+
+  <p id="status-msg" style="font-size: 0.85rem; color: #B3261E; margin-top: 14px;"></p>
+
+  <div style="margin-top: 24px; font-size: 0.8rem; color: #999;">
+    <a href="{{ url_for('payment_cancel') }}" style="color: #666; text-decoration: underline;">Cancel and return to cart</a>
+  </div>
+</div>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+  const options = {
+    key: {{ key_id|tojson }},
+    amount: {{ amount_paise|int }},
+    currency: "INR",
+    name: "COSTUME STORE",
+    description: "Costume Order #{{ order_number }}",
+    image: "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=128&auto=format&fit=crop&q=80",
+    order_id: {{ gateway_order_id|tojson }},
+    prefill: {
+      name: {{ customer.name|tojson }},
+      email: {{ customer.email|tojson }},
+      contact: {{ customer.phone|tojson }}
+    },
+    theme: {
+      color: "#5B1427"
+    },
+    handler: function (response) {
+      // POST the verified payment signature to backend
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = {{ url_for('verify_payment')|tojson }};
+
+      ["razorpay_payment_id", "razorpay_order_id", "razorpay_signature"].forEach(k => {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = k;
+        input.value = response[k];
+        form.appendChild(input);
+      });
+
+      document.body.appendChild(form);
+      form.submit();
+    },
+    modal: {
+      ondismiss: function () {
+        window.location.href = {{ url_for('payment_cancel')|tojson }};
+      }
+    }
+  };
+
+  document.getElementById("pay-btn").addEventListener("click", function () {
+    if (typeof Razorpay === "undefined") {
+      document.getElementById("status-msg").textContent = "Razorpay checkout could not load. Please check your internet connection and retry.";
+      return;
+    }
+    const rzp = new Razorpay(options);
+    rzp.on("payment.failed", function (response) {
+      document.getElementById("status-msg").textContent = (response.error && response.error.description) || "Payment failed. Your bag is unchanged.";
+    });
+    rzp.open();
+  });
+
+  // Automatically trigger Razorpay modal on page load
+  window.addEventListener('load', function() {
+    setTimeout(function() {
+      if (typeof Razorpay !== "undefined") {
+        document.getElementById("pay-btn").click();
+      }
+    }, 400);
+  });
+</script>
+
+</body>
+</html>

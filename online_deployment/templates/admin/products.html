@@ -1,0 +1,133 @@
+{% extends 'admin/base.html' %}
+
+{% block page_title %}Product Catalog Management{% endblock %}
+
+{% block admin_content %}
+<div class="admin-card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:14px;">
+    <div>
+      <h3 style="font-size:1.25rem;margin:0;">Costume Catalog ({{ pagination.total }} items)</h3>
+      <span style="font-size:0.85rem;color:var(--admin-muted);">Manage apparel, accessories, pricing, and variants.</span>
+    </div>
+    <a href="{{ url_for('admin_add_product') }}" class="btn-admin btn-admin-primary">
+      <i class="fas fa-plus"></i> Add New Product
+    </a>
+  </div>
+
+  <!-- Search & Category Filters -->
+  <form action="{{ url_for('admin_products') }}" method="GET" style="display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;">
+    <input type="text" name="search" value="{{ search or '' }}" placeholder="Search by name or SKU..." style="flex:1;min-width:220px;padding:9px 14px;border:1px solid var(--admin-border);border-radius:6px;outline:none;font-size:0.9rem;">
+    
+    <select name="category_id" style="padding:9px 14px;border:1px solid var(--admin-border);border-radius:6px;outline:none;font-size:0.9rem;">
+      <option value="">All Categories</option>
+      {% for c in categories %}
+        <option value="{{ c.id }}" {% if selected_cat == c.id %}selected{% endif %}>{{ c.name }}</option>
+      {% endfor %}
+    </select>
+
+    <button type="submit" class="btn-admin btn-admin-secondary">Filter</button>
+    {% if search or selected_cat %}
+      <a href="{{ url_for('admin_products') }}" class="btn-admin btn-admin-secondary">Reset</a>
+    {% endif %}
+  </form>
+
+  <!-- Products Table -->
+  <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:0.875rem;text-align:left;">
+      <thead>
+        <tr style="border-bottom:2px solid var(--admin-border);background:#F9FAFB;color:var(--admin-muted);">
+          <th style="padding:12px;">Product</th>
+          <th style="padding:12px;">SKU</th>
+          <th style="padding:12px;">Category</th>
+          <th style="padding:12px;">Base Price</th>
+          <th style="padding:12px;">Sale Price</th>
+          <th style="padding:12px;">Total Stock</th>
+          <th style="padding:12px;">Status</th>
+          <th style="padding:12px;text-align:right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in products %}
+          <tr style="border-bottom:1px solid var(--admin-border);">
+            <td style="padding:12px;display:flex;align-items:center;gap:12px;">
+              <img src="{{ p.primary_image }}" alt="{{ p.name }}" style="width:48px;height:60px;object-fit:cover;border-radius:4px;flex-shrink:0;">
+              <div>
+                <a href="{{ url_for('product_details', product_id=p.id) }}" target="_blank" style="font-weight:700;color:var(--admin-text);text-decoration:none;">
+                  {{ p.name }}
+                </a>
+                <div style="font-size:0.75rem;color:var(--admin-muted);">{{ p.variants|length }} variant(s) configured</div>
+              </div>
+            </td>
+            <td style="padding:12px;font-family:monospace;color:var(--admin-muted);">
+              {{ p.sku or '-' }}
+            </td>
+            <td style="padding:12px;">
+              {{ p.category.name if p.category else 'Uncategorized' }}
+            </td>
+            <td style="padding:12px;">
+              ₹{{ '%.2f'|format(p.base_price) }}
+            </td>
+            <td style="padding:12px;font-weight:700;color:var(--admin-primary);">
+              {% if p.discount_price %}₹{{ '%.2f'|format(p.discount_price) }}{% else %}-{% endif %}
+            </td>
+            <td style="padding:12px;">
+              {% if p.total_stock == 0 %}
+                <span class="badge-status" style="background:#FEE2E2;color:#991B1B;">0 (Out)</span>
+              {% elif p.total_stock <= 5 %}
+                <span class="badge-status" style="background:#FEF3C7;color:#92400E;">{{ p.total_stock }} (Low)</span>
+              {% else %}
+                <span style="font-weight:700;color:var(--admin-success);">{{ p.total_stock }}</span>
+              {% endif %}
+            </td>
+            <td style="padding:12px;">
+              <span class="badge-status" style="background:{% if p.is_active %}#DCFCE7;color:#166534;{% else %}#F3F4F6;color:#6B7280;{% endif %}">
+                {{ 'Active' if p.is_active else 'Deactivated' }}
+              </span>
+            </td>
+            <td style="padding:12px;text-align:right;">
+              <div style="display:inline-flex;gap:6px;align-items:center;">
+                <a href="{{ url_for('admin_edit_product', product_id=p.id) }}" class="btn-admin btn-admin-secondary" style="padding:6px 10px;font-size:0.8rem;" title="Edit Product">
+                  <i class="fas fa-edit"></i> Edit
+                </a>
+
+                <form action="{{ url_for('admin_toggle_product_publish', product_id=p.id) }}" method="POST" style="display:inline;">
+                  <button type="submit" class="btn-admin btn-admin-secondary" style="padding:6px 10px;font-size:0.8rem;" title="{% if p.is_active %}Unpublish from Storefront{% else %}Publish to Storefront{% endif %}">
+                    {% if p.is_active %}
+                      <i class="fas fa-eye-slash" style="color:#D97706;"></i> Unpublish
+                    {% else %}
+                      <i class="fas fa-eye" style="color:#16A34A;"></i> Publish
+                    {% endif %}
+                  </button>
+                </form>
+
+                <form action="{{ url_for('admin_delete_product', product_id=p.id) }}" method="POST" onsubmit="return confirm('Permanently delete {{ p.name }}? This action cannot be undone.');" style="display:inline;">
+                  <button type="submit" class="btn-admin" style="background:#FEE2E2;color:#991B1B;padding:6px 10px;font-size:0.8rem;" title="Permanently Delete">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if pagination.pages > 1 %}
+    <div style="display:flex;justify-content:center;gap:8px;margin-top:28px;">
+      {% if pagination.has_prev %}
+        <a href="{{ url_for('admin_products', page=pagination.prev_num, search=search, category_id=selected_cat) }}" class="btn-admin btn-admin-secondary">&larr; Previous</a>
+      {% endif %}
+      {% for pg in pagination.iter_pages() %}
+        {% if pg %}
+          <a href="{{ url_for('admin_products', page=pg, search=search, category_id=selected_cat) }}" class="btn-admin {% if pg == pagination.page %}btn-admin-primary{% else %}btn-admin-secondary{% endif %}">{{ pg }}</a>
+        {% endif %}
+      {% endfor %}
+      {% if pagination.has_next %}
+        <a href="{{ url_for('admin_products', page=pagination.next_num, search=search, category_id=selected_cat) }}" class="btn-admin btn-admin-secondary">Next &rarr;</a>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

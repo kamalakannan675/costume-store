@@ -1,0 +1,177 @@
+{% extends 'admin/base.html' %}
+
+{% block page_title %}Add New Costume Product{% endblock %}
+
+{% block admin_content %}
+<div class="admin-card" style="max-width:960px;margin:0 auto;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;border-bottom:1px solid var(--admin-border);padding-bottom:16px;">
+    <div>
+      <h3 style="font-size:1.3rem;margin:0;">New Costume Entry</h3>
+      <span style="font-size:0.85rem;color:var(--admin-muted);">Add general apparel details, imagery, and initial size/colour variants.</span>
+    </div>
+    <a href="{{ url_for('admin_products') }}" class="btn-admin btn-admin-secondary">&larr; Back to Catalog</a>
+  </div>
+
+  <form action="{{ url_for('admin_add_product') }}" method="POST" enctype="multipart/form-data">
+    <!-- Basic Information -->
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;margin-bottom:18px;">
+      <div>
+        <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;">Product Name *</label>
+        <input type="text" name="name" required placeholder="e.g. Royal Mughal Emperor Sherwani Ensemble" style="width:100%;padding:10px 14px;border:1px solid var(--admin-border);border-radius:6px;outline:none;font-size:0.9rem;">
+      </div>
+      <div>
+        <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;">Brand / Atelier</label>
+        <input type="text" name="brand" value="Costume Store" placeholder="Brand Name" style="width:100%;padding:10px 14px;border:1px solid var(--admin-border);border-radius:6px;outline:none;font-size:0.9rem;">
+      </div>
+    </div>
+
+    <!-- Category & Subcategory -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-bottom:18px;">
+      <div>
+        <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;">Main Category *</label>
+        <select name="category_id" required style="width:100%;padding:10px 14px;border:1px solid var(--admin-border);border-radius:6px;outline:none;font-size:0.9rem;">
+          <option value="">-- Choose Category --</option>
+          {% for c in categories %}
+            <option value="{{ c.id }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;">Subcategory (Optional)</label>
+        <select name="subcategory_id" style="width:100%;padding:10px 14px;border:1px solid var(--admin-border);border-radius:6px;outline:none;font-size:0.9rem;">
+          <option value="">-- Choose Subcategory --</option>
+          {% for s in subcategories %}
+            <option value="{{ s.id }}">{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;">Product SKU Code</label>
+        <input type="text" name="sku" placeholder="Auto-generated if empty" style="width:100%;padding:10px 14px;border:1px solid var(--admin-border);border-radius:6px;outline:none;font-size:0.9rem;">
+      </div>
+    </div>
+
+    <!-- Pricing -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;background:#F9FAFB;padding:16px;border-radius:8px;border:1px solid var(--admin-border);">
+      <div>
+        <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;">Base Original Price (₹) *</label>
+        <input type="number" step="0.01" name="base_price" required placeholder="3999.00" style="width:100%;padding:10px 14px;border:1px solid var(--admin-border);border-radius:6px;outline:none;font-size:0.9rem;background:#FFF;">
+      </div>
+      <div>
+        <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;">Discounted Selling Price (₹) (Optional)</label>
+        <input type="number" step="0.01" name="discount_price" placeholder="3499.00 (leave blank if no discount)" style="width:100%;padding:10px 14px;border:1px solid var(--admin-border);border-radius:6px;outline:none;font-size:0.9rem;background:#FFF;">
+      </div>
+    </div>
+
+    <!-- Description & Details -->
+    <div style="margin-bottom:18px;">
+      <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;">Marketing Description *</label>
+      <textarea name="description" required rows="4" placeholder="Compelling storytelling description of the costume..." style="width:100%;padding:10px 14px;border:1px solid var(--admin-border);border-radius:6px;outline:none;font-size:0.9rem;"></textarea>
+    </div>
+
+    <div style="margin-bottom:24px;">
+      <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;">Package Contents, Fabric & Care Instructions</label>
+      <textarea name="details" rows="3" placeholder="Package includes: Coat, Pant, Crown...&#10;Fabric: Brocade Silk&#10;Care: Dry clean only" style="width:100%;padding:10px 14px;border:1px solid var(--admin-border);border-radius:6px;outline:none;font-size:0.9rem;"></textarea>
+    </div>
+
+    <!-- Product Images -->
+    <div style="background:#F9FAFB;padding:20px;border-radius:8px;border:1px solid var(--admin-border);margin-bottom:24px;">
+      <h4 style="font-size:0.95rem;margin-bottom:12px;">Product Imagery (Multiple Images Supported)</h4>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:12px;">
+        <div>
+          <label style="display:block;font-size:0.8rem;font-weight:600;margin-bottom:4px;">Upload Image Files (Select Multiple)</label>
+          <input type="file" id="multiImageUpload" name="image_files" multiple accept="image/*" style="width:100%;padding:8px 0;font-size:0.85rem;" onchange="previewSelectedImages(this)">
+        </div>
+        <div>
+          <label style="display:block;font-size:0.8rem;font-weight:600;margin-bottom:4px;">Or Primary Image URL</label>
+          <input type="url" name="image_url" placeholder="https://..." style="width:100%;padding:9px 12px;border:1px solid var(--admin-border);border-radius:6px;outline:none;font-size:0.85rem;background:#FFF;">
+        </div>
+      </div>
+      <div id="imagePreviewContainer" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;"></div>
+    </div>
+
+    <!-- Flags -->
+    <div style="display:flex;gap:24px;margin-bottom:28px;">
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.875rem;cursor:pointer;">
+        <input type="checkbox" name="is_featured" value="1"> Featured on Homepage
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.875rem;cursor:pointer;">
+        <input type="checkbox" name="is_bestseller" value="1"> Best Seller Badge
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:0.875rem;cursor:pointer;">
+        <input type="checkbox" name="is_trending" value="1"> Trending Now Badge
+      </label>
+    </div>
+
+    <!-- Initial Size & Colour Variant Builder -->
+    <div style="border-top:1px solid var(--admin-border);padding-top:24px;margin-bottom:30px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <h4 style="font-size:1rem;margin:0;">Product Sizing & Colour Inventory</h4>
+        <button type="button" onclick="addVariantRow();" class="btn-admin btn-admin-secondary" style="font-size:0.8rem;padding:6px 12px;">
+          + Add Variant Row
+        </button>
+      </div>
+
+      <div id="variantsContainer" style="display:flex;flex-direction:column;gap:10px;">
+        <!-- Initial Row 1 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:center;" class="variant-row">
+          <input type="text" name="variant_size[]" required placeholder="Size (e.g. M, L, XL, 4-6Y)" value="M" style="padding:8px 12px;border:1px solid var(--admin-border);border-radius:6px;font-size:0.85rem;">
+          <input type="text" name="variant_colour[]" required placeholder="Colour (e.g. Royal Red)" value="Royal Red" style="padding:8px 12px;border:1px solid var(--admin-border);border-radius:6px;font-size:0.85rem;">
+          <input type="number" name="variant_stock[]" required placeholder="Stock Qty" value="10" min="0" style="padding:8px 12px;border:1px solid var(--admin-border);border-radius:6px;font-size:0.85rem;">
+          <button type="button" onclick="this.parentElement.remove();" style="border:none;background:none;color:#991B1B;cursor:pointer;font-size:1.1rem;">&times;</button>
+        </div>
+
+        <!-- Initial Row 2 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:center;" class="variant-row">
+          <input type="text" name="variant_size[]" placeholder="Size (e.g. L)" value="L" style="padding:8px 12px;border:1px solid var(--admin-border);border-radius:6px;font-size:0.85rem;">
+          <input type="text" name="variant_colour[]" placeholder="Colour" value="Royal Red" style="padding:8px 12px;border:1px solid var(--admin-border);border-radius:6px;font-size:0.85rem;">
+          <input type="number" name="variant_stock[]" placeholder="Stock Qty" value="15" min="0" style="padding:8px 12px;border:1px solid var(--admin-border);border-radius:6px;font-size:0.85rem;">
+          <button type="button" onclick="this.parentElement.remove();" style="border:none;background:none;color:#991B1B;cursor:pointer;font-size:1.1rem;">&times;</button>
+        </div>
+      </div>
+    </div>
+
+    <button type="submit" class="btn-admin btn-admin-primary" style="padding:12px 30px;font-size:0.95rem;">
+      <i class="fas fa-save"></i> Save & Publish Product
+    </button>
+  </form>
+</div>
+
+<script>
+  function previewSelectedImages(input) {
+    const container = document.getElementById('imagePreviewContainer');
+    container.innerHTML = '';
+    if (input.files && input.files.length) {
+      Array.from(input.files).forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const div = document.createElement('div');
+          div.style.cssText = 'position:relative;width:70px;height:84px;border-radius:6px;overflow:hidden;border:1px solid #CBD5E1;';
+          div.innerHTML = `
+            <img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;">
+            <span style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.6);color:#FFF;font-size:0.6rem;text-align:center;padding:1px 0;">#${index+1}</span>
+          `;
+          container.appendChild(div);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  }
+
+  function addVariantRow() {
+    const container = document.getElementById('variantsContainer');
+    const div = document.createElement('div');
+    div.className = 'variant-row';
+    div.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:center;';
+    div.innerHTML = `
+      <input type="text" name="variant_size[]" required placeholder="Size (e.g. XL)" style="padding:8px 12px;border:1px solid var(--admin-border);border-radius:6px;font-size:0.85rem;">
+      <input type="text" name="variant_colour[]" required placeholder="Colour" style="padding:8px 12px;border:1px solid var(--admin-border);border-radius:6px;font-size:0.85rem;">
+      <input type="number" name="variant_stock[]" required placeholder="Stock Qty" value="10" min="0" style="padding:8px 12px;border:1px solid var(--admin-border);border-radius:6px;font-size:0.85rem;">
+      <button type="button" onclick="this.parentElement.remove();" style="border:none;background:none;color:#991B1B;cursor:pointer;font-size:1.1rem;">&times;</button>
+    `;
+    container.appendChild(div);
+  }
+</script>
+{% endblock %}

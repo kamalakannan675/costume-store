@@ -1,0 +1,106 @@
+{% extends 'admin/base.html' %}
+
+{% block title %}Customer Reviews Moderation | COSTUME STORE Admin{% endblock %}
+{% block page_title %}Customer Reviews Moderation{% endblock %}
+
+{% block admin_content %}
+<div class="admin-card">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+    <div>
+      <h3 style="font-size:1.15rem;margin:0 0 4px 0;">All Customer Reviews</h3>
+      <p style="font-size:0.85rem;color:var(--admin-muted);margin:0;">Moderate, approve, and manage customer product feedback</p>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <span class="badge-status" style="background:#DCFCE7;color:#166534;font-size:0.8rem;padding:6px 12px;">
+        Total Reviews: {{ reviews|length }}
+      </span>
+    </div>
+  </div>
+
+  {% if reviews %}
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+        <thead>
+          <tr style="background:#F9FAFB;border-bottom:2px solid var(--admin-border);text-align:left;">
+            <th style="padding:12px 14px;color:var(--admin-muted);font-weight:600;">Product</th>
+            <th style="padding:12px 14px;color:var(--admin-muted);font-weight:600;">Customer</th>
+            <th style="padding:12px 14px;color:var(--admin-muted);font-weight:600;">Rating</th>
+            <th style="padding:12px 14px;color:var(--admin-muted);font-weight:600;">Feedback / Comment</th>
+            <th style="padding:12px 14px;color:var(--admin-muted);font-weight:600;">Date</th>
+            <th style="padding:12px 14px;color:var(--admin-muted);font-weight:600;">Status</th>
+            <th style="padding:12px 14px;color:var(--admin-muted);font-weight:600;text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for rev in reviews %}
+            <tr style="border-bottom:1px solid var(--admin-border);vertical-align:middle;">
+              <td style="padding:14px;">
+                <div style="font-weight:600;color:var(--admin-primary);">
+                  {{ rev.product.name if rev.product else 'Product #' ~ rev.product_id }}
+                </div>
+                <small style="color:var(--admin-muted);">ID: #{{ rev.product_id }}</small>
+              </td>
+              <td style="padding:14px;">
+                <div style="font-weight:600;">{{ rev.user.name if rev.user else 'Anonymous' }}</div>
+                <div style="font-size:0.8rem;color:var(--admin-muted);">{{ rev.user.email if rev.user else 'N/A' }}</div>
+              </td>
+              <td style="padding:14px;white-space:nowrap;">
+                {% for i in range(rev.rating) %}
+                  <i class="fas fa-star" style="color:#F59E0B;font-size:0.85rem;"></i>
+                {% endfor %}
+                {% for i in range(5 - rev.rating) %}
+                  <i class="far fa-star" style="color:#D1D5DB;font-size:0.85rem;"></i>
+                {% endfor %}
+                <span style="margin-left:4px;font-weight:700;">{{ rev.rating }}/5</span>
+              </td>
+              <td style="padding:14px;max-width:320px;">
+                <div style="line-height:1.4;color:var(--admin-text);">
+                  {{ rev.comment or '<em>No written comment provided.</em>'|safe }}
+                </div>
+              </td>
+              <td style="padding:14px;white-space:nowrap;font-size:0.8rem;color:var(--admin-muted);">
+                {{ rev.created_at.strftime('%d %b %Y, %I:%M %p') }}
+              </td>
+              <td style="padding:14px;white-space:nowrap;">
+                {% if rev.is_approved %}
+                  <span class="badge-status" style="background:#DCFCE7;color:#166534;">Approved</span>
+                {% else %}
+                  <span class="badge-status" style="background:#FEF3C7;color:#92400E;">Pending</span>
+                {% endif %}
+              </td>
+              <td style="padding:14px;text-align:right;white-space:nowrap;">
+                <div style="display:inline-flex;gap:6px;align-items:center;">
+                  {% if rev.is_approved %}
+                    <form action="{{ url_for('admin_disapprove_review', review_id=rev.id) }}" method="POST" style="display:inline;">
+                      <button type="submit" class="btn-admin btn-admin-secondary" style="padding:6px 10px;font-size:0.8rem;" title="Mark as Pending">
+                        <i class="fas fa-ban"></i>
+                      </button>
+                    </form>
+                  {% else %}
+                    <form action="{{ url_for('admin_approve_review', review_id=rev.id) }}" method="POST" style="display:inline;">
+                      <button type="submit" class="btn-admin" style="background:#16A34A;color:#FFF;padding:6px 10px;font-size:0.8rem;" title="Approve Review">
+                        <i class="fas fa-check"></i> Approve
+                      </button>
+                    </form>
+                  {% endif %}
+                  <form action="{{ url_for('admin_delete_review', review_id=rev.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Permanently delete this review?');">
+                    <button type="submit" class="btn-admin" style="background:#FEE2E2;color:#991B1B;padding:6px 10px;font-size:0.8rem;" title="Delete Review">
+                      <i class="fas fa-trash-alt"></i>
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="text-align:center;padding:56px 20px;color:var(--admin-muted);">
+      <i class="fas fa-star" style="font-size:2.5rem;color:#E5E7EB;margin-bottom:12px;"></i>
+      <h4 style="font-size:1.1rem;margin:0 0 6px 0;color:var(--admin-text);">No Customer Reviews Yet</h4>
+      <p style="font-size:0.85rem;margin:0;">Customer reviews submitted from product pages will be displayed here for moderation.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,191 @@
+{% extends 'base.html' %}
+
+{% block title %}Shopping Bag | COSTUME STORE{% endblock %}
+
+{% block content %}
+<div style="background:var(--secondary-light);border-bottom:1px solid var(--border-color);padding:24px;">
+  <div style="max-width:1400px;margin:0 auto;">
+    <h1 style="font-size:2rem;margin:0;">Shopping Bag</h1>
+  </div>
+</div>
+
+<div style="max-width:1400px;margin:36px auto;padding:0 24px;">
+  {% if cart['items'] %}
+    <!-- Free Delivery Progress Bar -->
+    <div style="background:#FFFFFF;border:1px solid var(--border-color);border-radius:var(--radius-md);padding:18px 24px;margin-bottom:32px;box-shadow:var(--shadow-sm);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:0.9rem;">
+        {% if cart.delivery_fee == 0 %}
+          <span style="font-weight:700;color:var(--success);"><i class="fas fa-check-circle"></i> Congratulations! You've unlocked FREE Express Shipping!</span>
+        {% else %}
+          <span style="font-weight:600;color:var(--text-dark);">
+            Add <strong style="color:var(--primary);">₹{{ '%.2f'|format(cart.free_delivery_threshold - cart.subtotal) }}</strong> more to enjoy <strong>FREE Express Delivery!</strong>
+          </span>
+        {% endif %}
+        <span style="font-weight:700;color:var(--primary);">{{ cart.free_delivery_progress }}%</span>
+      </div>
+      <div style="width:100%;height:8px;background:var(--border-color);border-radius:var(--radius-pill);overflow:hidden;">
+        <div style="width:{{ cart.free_delivery_progress }}%;height:100%;background:linear-gradient(90deg, var(--accent), var(--primary));border-radius:var(--radius-pill);transition:width 0.4s ease;"></div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 380px;gap:36px;align-items:start;">
+
+      <!-- ==========================================
+           CART ITEMS LIST
+           ========================================== -->
+      <div>
+        <div style="background:#FFFFFF;border:1px solid var(--border-color);border-radius:var(--radius-md);overflow:hidden;box-shadow:var(--shadow-sm);">
+          <div style="padding:18px 24px;background:var(--secondary-light);border-bottom:1px solid var(--border-color);display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-weight:700;font-size:0.95rem;">Cart Items ({{ cart.item_count }})</span>
+            <form action="{{ url_for('clear_cart') }}" method="POST" onsubmit="return confirm('Are you sure you want to clear your bag?');">
+              <button type="submit" style="background:none;border:none;color:var(--danger);font-size:0.85rem;font-weight:600;cursor:pointer;">
+                <i class="fas fa-trash-alt"></i> Clear Bag
+              </button>
+            </form>
+          </div>
+
+          <div style="padding:0 24px;">
+            {% for item in cart['items'] %}
+              <div style="display:flex;gap:20px;padding:24px 0;border-bottom:1px solid var(--border-color);align-items:center;flex-wrap:wrap;">
+                <!-- Product Thumbnail -->
+                <div style="width:84px;height:104px;border-radius:var(--radius-sm);overflow:hidden;background:#F0ECE6;flex-shrink:0;">
+                  <img src="{{ item.image_url }}" alt="{{ item.product_name }}" style="width:100%;height:100%;object-fit:cover;">
+                </div>
+
+                <!-- Product Details -->
+                <div style="flex:1;min-width:200px;">
+                  <h3 style="font-size:1.05rem;margin-bottom:6px;">
+                    <a href="{{ url_for('product_details', product_id=item.product_id) }}" style="color:var(--text-dark);">
+                      {{ item.product_name }}
+                    </a>
+                  </h3>
+                  <div style="display:flex;gap:12px;font-size:0.85rem;color:var(--text-muted);margin-bottom:8px;">
+                    <span>Size: <strong style="color:var(--text-dark);">{{ item.size }}</strong></span>
+                    <span>&bull;</span>
+                    <span style="display:flex;align-items:center;gap:6px;">
+                      Colour: <strong style="color:var(--text-dark);">{{ item.colour }}</strong>
+                      <span style="width:12px;height:12px;border-radius:50%;background:{{ item.colour_code }};display:inline-block;border:1px solid rgba(0,0,0,0.1);"></span>
+                    </span>
+                  </div>
+                  <div style="font-size:1.05rem;font-weight:700;color:var(--primary);">
+                    ₹{{ '%.2f'|format(item.unit_price) }}
+                  </div>
+                </div>
+
+                <!-- Quantity Stepper Controls -->
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <form action="{{ url_for('update_cart') }}" method="POST" style="display:flex;align-items:center;border:1px solid var(--border-color);border-radius:var(--radius-pill);padding:2px;background:#FFF;">
+                    <input type="hidden" name="cart_key" value="{{ item.cart_key }}">
+                    <button type="submit" name="action" value="decrease" style="width:30px;height:30px;border:none;background:none;cursor:pointer;font-size:1rem;color:var(--text-dark);">&minus;</button>
+                    <span style="width:34px;text-align:center;font-weight:700;font-size:0.9rem;">{{ item.quantity }}</span>
+                    <button type="submit" name="action" value="increase" style="width:30px;height:30px;border:none;background:none;cursor:pointer;font-size:1rem;color:var(--text-dark);">&plus;</button>
+                  </form>
+                </div>
+
+                <!-- Line Total & Remove -->
+                <div style="text-align:right;min-width:110px;">
+                  <div style="font-weight:700;font-size:1.15rem;color:var(--text-dark);margin-bottom:6px;">
+                    ₹{{ '%.2f'|format(item.line_total) }}
+                  </div>
+                  <form action="{{ url_for('remove_from_cart', cart_key=item.cart_key) }}" method="POST">
+                    <button type="submit" style="background:none;border:none;color:var(--text-muted);font-size:0.85rem;cursor:pointer;" title="Remove Item">
+                      <i class="far fa-trash-alt"></i> Remove
+                    </button>
+                  </form>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div style="margin-top:20px;">
+          <a href="{{ url_for('shop') }}" style="color:var(--primary);font-weight:600;display:inline-flex;align-items:center;gap:8px;">
+            &larr; Continue Shopping
+          </a>
+        </div>
+      </div>
+
+      <!-- ==========================================
+           ORDER SUMMARY & COUPON SECTION
+           ========================================== -->
+      <div>
+        <!-- Coupon Form -->
+        <div style="background:#FFFFFF;border:1px solid var(--border-color);border-radius:var(--radius-md);padding:24px;margin-bottom:24px;box-shadow:var(--shadow-sm);">
+          <h3 style="font-size:1.1rem;margin-bottom:12px;"><i class="fas fa-ticket-alt" style="color:var(--accent);margin-right:6px;"></i> Have a Promo Code?</h3>
+          {% if cart.coupon_code %}
+            <div style="background:var(--secondary);border:1px solid var(--border-color);border-radius:var(--radius-sm);padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <strong style="color:var(--primary);font-size:0.95rem;">{{ cart.coupon_code }}</strong>
+                <span style="font-size:0.8rem;color:var(--success);display:block;">Discount Applied (-₹{{ '%.2f'|format(cart.discount_amount) }})</span>
+              </div>
+              <form action="{{ url_for('remove_coupon') }}" method="POST">
+                <button type="submit" style="background:none;border:none;color:var(--danger);font-size:0.85rem;font-weight:600;cursor:pointer;">Remove</button>
+              </form>
+            </div>
+          {% else %}
+            <form action="{{ url_for('apply_coupon') }}" method="POST" style="display:flex;gap:8px;">
+              <input type="text" name="coupon_code" placeholder="Enter coupon code" required style="flex:1;padding:10px 14px;border:1px solid var(--border-color);border-radius:var(--radius-pill);text-transform:uppercase;font-size:0.9rem;outline:none;">
+              <button type="submit" class="btn btn-secondary btn-sm" style="flex-shrink:0;">Apply</button>
+            </form>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:8px;">
+              Tip: Use <strong>WELCOME10</strong> or <strong>FESTIVE20</strong> for instant savings!
+            </div>
+          {% endif %}
+        </div>
+
+        <!-- Summary Totals Card -->
+        <div style="background:#FFFFFF;border:1px solid var(--border-color);border-radius:var(--radius-md);padding:24px;box-shadow:var(--shadow-sm);">
+          <h3 style="font-size:1.25rem;margin-bottom:18px;border-bottom:1px solid var(--border-color);padding-bottom:12px;">Order Summary</h3>
+
+          <div style="display:flex;justify-content:space-between;font-size:0.95rem;margin-bottom:12px;">
+            <span style="color:var(--text-muted);">Bag Subtotal</span>
+            <span style="font-weight:600;">₹{{ '%.2f'|format(cart.subtotal) }}</span>
+          </div>
+
+          {% if cart.discount_amount > 0 %}
+            <div style="display:flex;justify-content:space-between;font-size:0.95rem;margin-bottom:12px;color:var(--success);">
+              <span>Coupon Discount ({{ cart.coupon_code }})</span>
+              <span style="font-weight:700;">- ₹{{ '%.2f'|format(cart.discount_amount) }}</span>
+            </div>
+          {% endif %}
+
+          <div style="display:flex;justify-content:space-between;font-size:0.95rem;margin-bottom:16px;">
+            <span style="color:var(--text-muted);">Estimated Delivery</span>
+            <span>
+              {% if cart.delivery_fee == 0 %}
+                <strong style="color:var(--success);">FREE</strong>
+              {% else %}
+                ₹{{ '%.2f'|format(cart.delivery_fee) }}
+              {% endif %}
+            </span>
+          </div>
+
+          <div style="border-top:2px solid var(--border-color);padding-top:16px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:baseline;">
+            <span style="font-size:1.15rem;font-weight:700;color:var(--text-dark);">Total Amount</span>
+            <span style="font-size:1.6rem;font-weight:700;color:var(--primary);">₹{{ '%.2f'|format(cart.total_amount) }}</span>
+          </div>
+
+          <a href="{{ url_for('checkout') }}" class="btn btn-primary btn-lg" style="width:100%;margin-bottom:14px;box-shadow:0 4px 14px rgba(91, 20, 39, 0.25);">
+            <i class="fas fa-lock"></i> Proceed to Checkout &rarr;
+          </a>
+
+          <div style="text-align:center;font-size:0.8rem;color:var(--text-muted);display:flex;align-items:center;justify-content:center;gap:6px;">
+            <i class="fas fa-shield-alt" style="color:var(--accent);"></i> 256-bit Encrypted Checkout
+          </div>
+        </div>
+      </div>
+
+    </div>
+  {% else %}
+    <!-- Empty Cart Screen -->
+    <div style="background:#FFFFFF;border:1px solid var(--border-color);border-radius:var(--radius-lg);padding:80px 24px;text-align:center;max-width:600px;margin:40px auto;box-shadow:var(--shadow-sm);">
+      <div style="width:80px;height:80px;border-radius:50%;background:var(--secondary);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 20px auto;">
+        <i class="fas fa-shopping-bag"></i>
+      </div>
+      <h2 style="font-size:1.8rem;margin-bottom:8px;">Your Shopping Bag is Empty</h2>
+      <p style="color:var(--text-muted);font-size:0.95rem;margin-bottom:28px;">Looks like you haven't added any costumes yet. Explore our handcrafted collections!</p>
+      <a href="{{ url_for('shop') }}" class="btn btn-primary btn-lg">Start Shopping Now &rarr;</a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

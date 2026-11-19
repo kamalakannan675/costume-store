@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}COSTUME STORE | Premium Costumes, Cosplay & Theatrical Attire{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}Buy high quality men's, women's, and kids' costumes, fancy dress, anime cosplay, historical regal wear, and accessories at COSTUME STORE.{% endblock %}">
+
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Core Theme CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+  <!-- Top Announcement Bar -->
+  <div class="announcement-bar">
+    <span>✨ Express Dispatch Across India | Free Delivery on Orders Over ₹{{ '%.0f'|format(store_settings.free_delivery_threshold|default(1499)|float) }}!</span>
+    <a href="{{ url_for('shop') }}">Shop Now &rarr;</a>
+  </div>
+
+  <!-- Main Sticky Header -->
+  <header class="main-header">
+    <div class="header-inner">
+      <!-- Mobile Menu Toggle Button -->
+      <button class="mobile-menu-btn d-lg-none" id="mobileMenuToggle" aria-label="Toggle Navigation" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-dark);">
+        <i class="fas fa-bars"></i>
+      </button>
+
+      <!-- Brand Logo -->
+      <a href="{{ url_for('home') }}" class="brand-logo">
+        <i class="fas fa-mask" style="color:var(--accent);"></i>
+        <span>COSTUME</span> STORE
+      </a>
+
+      <!-- Global Product Search -->
+      <div class="header-search d-none d-md-block">
+        <form action="{{ url_for('shop') }}" method="GET">
+          <input type="text" name="q" placeholder="Search sarees, sherwanis, kurtas, lehengas..." value="{{ request.args.get('q', '') }}">
+          <button type="submit" aria-label="Search"><i class="fas fa-search"></i></button>
+        </form>
+      </div>
+
+      <!-- Action Icons (Account, Wishlist, Cart) -->
+      <div class="header-actions">
+        {% if current_user %}
+          <div class="user-dropdown" style="position:relative;">
+            <a href="{{ url_for('profile') }}" class="header-btn" title="My Account">
+              <i class="far fa-user-circle"></i>
+              <span class="d-none d-lg-inline">{{ current_user.name.split(' ')[0] }}</span>
+            </a>
+          </div>
+        {% elif is_admin %}
+          <a href="{{ url_for('admin_dashboard') }}" class="header-btn" title="Admin Portal" style="color:var(--accent);font-weight:700;">
+            <i class="fas fa-user-shield"></i>
+            <span class="d-none d-lg-inline">Admin</span>
+          </a>
+        {% else %}
+          <a href="{{ url_for('login') }}" class="header-btn" title="Sign In">
+            <i class="far fa-user"></i>
+            <span class="d-none d-lg-inline">Sign In</span>
+          </a>
+        {% endif %}
+
+        <!-- Wishlist -->
+        <a href="{{ url_for('wishlist') }}" class="header-btn" title="Wishlist">
+          <i class="far fa-heart"></i>
+          <span class="badge-count wishlist-count-badge" style="{% if wishlist_count == 0 %}display:none;{% endif %}">{{ wishlist_count }}</span>
+        </a>
+
+        <!-- Shopping Cart -->
+        <a href="{{ url_for('cart') }}" class="header-btn" title="Shopping Bag">
+          <i class="fas fa-shopping-bag"></i>
+          <span class="badge-count cart-count-badge">{{ cart_count }}</span>
+          <span class="d-none d-xl-inline" style="font-weight:600;">Bag</span>
+        </a>
+
+        {% if is_admin %}
+          <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline btn-sm d-none d-md-inline-flex" style="border-color:var(--accent);color:var(--accent);">
+            <i class="fas fa-cog"></i> Admin
+          </a>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Category Mega Navigation Menu -->
+    <nav class="nav-bar">
+      <ul class="nav-links">
+        <li class="nav-item">
+          <a href="{{ url_for('home') }}" class="nav-link">HOME</a>
+        </li>
+        <li class="nav-item">
+          <a href="{{ url_for('shop') }}" class="nav-link">SHOP ALL</a>
+        </li>
+        <li class="nav-item">
+          <a href="{{ url_for('shop', sort='popular') }}" class="nav-link" style="color:var(--accent);">BESTSELLERS</a>
+        </li>
+        <li class="nav-item">
+          <a href="{{ url_for('about') }}" class="nav-link">ABOUT</a>
+        </li>
+        <li class="nav-item">
+          <a href="{{ url_for('contact') }}" class="nav-link">CONTACT</a>
+        </li>
+      </ul>
+    </nav>
+  </header>
+
+  <!-- Customer Sidebar / Account Menu -->
+  <div id="drawerOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:998;"></div>
+  <div id="mobileDrawer" style="position:fixed;top:0;left:-320px;width:300px;height:100%;background:#FFF;z-index:999;transition:left 0.3s ease;overflow-y:auto;padding:24px;box-shadow:var(--shadow-lg);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;border-bottom:1px solid var(--border-color);padding-bottom:12px;">
+      <a href="{{ url_for('home') }}" class="brand-logo" style="font-size:1.3rem;"><span>COSTUME</span> STORE</a>
+      <button id="closeDrawerBtn" style="background:none;border:none;font-size:1.3rem;cursor:pointer;" aria-label="Close menu">&times;</button>
+    </div>
+
+    <ul style="list-style:none;display:flex;flex-direction:column;gap:16px;padding:0;margin:0;">
+      <li>
+        <a href="{{ url_for('home') }}" style="display:flex;align-items:center;gap:12px;font-weight:600;color:var(--text-dark);text-decoration:none;font-size:1rem;">
+          <i class="fas fa-home" style="width:20px;color:var(--primary);"></i> Home
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('shop') }}" style="display:flex;align-items:center;gap:12px;font-weight:600;color:var(--text-dark);text-decoration:none;font-size:1rem;">
+          <i class="fas fa-tshirt" style="width:20px;color:var(--primary);"></i> Shop All Costumes
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('profile') }}" style="display:flex;align-items:center;gap:12px;font-weight:600;color:var(--text-dark);text-decoration:none;font-size:1rem;">
+          <i class="fas fa-user-circle" style="width:20px;color:var(--primary);"></i> My Account
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('my_orders') }}" style="display:flex;align-items:center;gap:12px;font-weight:600;color:var(--text-dark);text-decoration:none;font-size:1rem;">
+          <i class="fas fa-box-open" style="width:20px;color:var(--primary);"></i> My Orders
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('my_orders') }}" style="display:flex;align-items:center;gap:12px;font-weight:600;color:var(--text-dark);text-decoration:none;font-size:1rem;">
+          <i class="fas fa-history" style="width:20px;color:var(--primary);"></i> Order History
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('wishlist') }}" style="display:flex;align-items:center;gap:12px;font-weight:600;color:var(--text-dark);text-decoration:none;font-size:1rem;">
+          <i class="fas fa-heart" style="width:20px;color:var(--primary);"></i> Wishlist
+        </a>
+      </li>
+      <li style="border-top:1px solid var(--border-color);padding-top:14px;margin-top:6px;">
+        {% if current_user %}
+          <a href="{{ url_for('logout') }}" style="display:flex;align-items:center;gap:12px;font-weight:600;color:var(--danger);text-decoration:none;font-size:1rem;">
+            <i class="fas fa-sign-out-alt" style="width:20px;"></i> Log Out
+          </a>
+        {% elif is_admin %}
+          <a href="{{ url_for('logout') }}" style="display:flex;align-items:center;gap:12px;font-weight:600;color:var(--danger);text-decoration:none;font-size:1rem;">
+            <i class="fas fa-sign-out-alt" style="width:20px;"></i> Admin Log Out
+          </a>
+        {% else %}
+          <a href="{{ url_for('login') }}" style="display:flex;align-items:center;gap:12px;font-weight:600;color:var(--primary);text-decoration:none;font-size:1rem;">
+            <i class="fas fa-sign-in-alt" style="width:20px;"></i> Sign In / Create Account
+          </a>
+        {% endif %}
+      </li>
+    </ul>
+  </div>
+
+  <!-- Flash Messages -->
+  <div class="flash-container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ 'error' if category == 'danger' or category == 'error' else category }}">
+            <span><i class="fas {{ 'fa-check-circle' if category == 'success' else ('fa-exclamation-circle' if category in ['error', 'danger'] else 'fa-info-circle') }}"></i> {{ message }}</span>
+            <button class="alert-close" onclick="this.parentElement.remove();">&times;</button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+  </div>
+
+  <!-- Main Page Content Block -->
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Main Global Footer -->
+  <footer class="main-footer">
+    <div class="footer-inner">
+      <div class="footer-col">
+        <h4 style="color:#FFF;">COSTUME STORE</h4>
+        <p style="font-size:0.9rem;line-height:1.7;color:#D6CBC0;margin-bottom:16px;">
+          India's leading destination for premium sales of theatrical outfits, historical regalia, movie character cosplay, dance garments, and enchanting kids fancy dress costumes. Handcrafted with authenticity, durability, and comfort in mind.
+        </p>
+        <div style="display:flex;gap:12px;font-size:1.1rem;color:var(--accent);">
+          <a href="#" aria-label="Facebook"><i class="fab fa-facebook"></i></a>
+          <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+          <a href="#" aria-label="YouTube"><i class="fab fa-youtube"></i></a>
+          <a href="#" aria-label="Pinterest"><i class="fab fa-pinterest"></i></a>
+        </div>
+      </div>
+
+      <div class="footer-col">
+        <h4>Traditional Collections</h4>
+        <ul class="footer-links">
+          <li><a href="{{ url_for('shop', category='women') }}">Women's Silk Sarees & Lehengas</a></li>
+          <li><a href="{{ url_for('shop', category='men') }}">Men's Sherwanis & Kurta Sets</a></li>
+          <li><a href="{{ url_for('shop', category='kids') }}">Kids' Pattu Pavadai & Dhotis</a></li>
+          <li><a href="{{ url_for('shop', category='festival') }}">Festival & Classical Dance Wear</a></li>
+          <li><a href="{{ url_for('shop', sort='popular') }}">Bestselling Traditional Attire</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h4>Customer Care</h4>
+        <ul class="footer-links">
+          <li><a href="{{ url_for('about') }}">About Our Brand</a></li>
+          <li><a href="{{ url_for('contact') }}">Contact & Showroom</a></li>
+          <li><a href="{{ url_for('my_orders') }}">Track Order Status</a></li>
+          <li><a href="{{ url_for('cart') }}">Shopping Bag</a></li>
+          <li><a href="{{ url_for('profile') }}">Account Settings</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h4>Direct Assistance</h4>
+        <p style="font-size:0.875rem;color:#D6CBC0;margin-bottom:8px;"><i class="fas fa-map-marker-alt" style="color:var(--accent);margin-right:6px;"></i> {{ store_settings.address }}</p>
+        <p style="font-size:0.875rem;color:#D6CBC0;margin-bottom:8px;"><i class="fas fa-phone-alt" style="color:var(--accent);margin-right:6px;"></i> {{ store_settings.phone }}</p>
+        <p style="font-size:0.875rem;color:#D6CBC0;margin-bottom:16px;"><i class="fas fa-envelope" style="color:var(--accent);margin-right:6px;"></i> {{ store_settings.email }}</p>
+        <div style="background:rgba(255,255,255,0.08);padding:10px 14px;border-radius:var(--radius-sm);border:1px solid rgba(255,255,255,0.12);">
+          <small style="display:block;color:var(--accent);font-weight:700;">SALES ONLY PLATFORM</small>
+          <small style="color:#CFC7BC;">All items are sold brand new for direct purchase and nationwide ownership.</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <div>&copy; {{ now.year if now else '2026' }} COSTUME STORE. All Rights Reserved.</div>
+      <div class="payment-icons">
+        <span style="font-size:0.8rem;color:#D6CBC0;margin-right:8px;">100% Secure Checkout:</span>
+        <i class="fab fa-cc-visa" title="Visa"></i>
+        <i class="fab fa-cc-mastercard" title="Mastercard"></i>
+        <i class="fas fa-money-bill-wave" title="UPI & Net Banking"></i>
+        <i class="fas fa-shield-alt" style="color:var(--accent);" title="Razorpay 256-bit Verified"></i>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Core JavaScript -->
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script>
+    // Simple script to open/close mobile drawer
+    const drawer = document.getElementById('mobileDrawer');
+    const overlay = document.getElementById('drawerOverlay');
+    const openBtn = document.getElementById('mobileMenuToggle');
+    const closeBtn = document.getElementById('closeDrawerBtn');
+
+    if(openBtn && drawer && overlay) {
+      openBtn.addEventListener('click', () => {
+        drawer.style.left = '0';
+        overlay.style.display = 'block';
+      });
+    }
+    if(closeBtn && drawer && overlay) {
+      closeBtn.addEventListener('click', () => {
+        drawer.style.left = '-300px';
+        overlay.style.display = 'none';
+      });
+    }
+    if(overlay && drawer) {
+      overlay.addEventListener('click', () => {
+        drawer.style.left = '-300px';
+        overlay.style.display = 'none';
+      });
+    }
+  </script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

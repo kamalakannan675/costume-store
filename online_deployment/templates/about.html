@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block title %}About Us | COSTUME STORE{% endblock %}
+
+{% block content %}
+<div style="background:linear-gradient(135deg, #2D0A14 0%, #4D1222 100%);color:#FFFFFF;padding:70px 24px;text-align:center;">
+  <div style="max-width:800px;margin:0 auto;">
+    <span style="color:var(--accent);font-weight:700;font-size:0.8125rem;letter-spacing:0.1em;text-transform:uppercase;">Our Heritage & Craft</span>
+    <h1 style="color:#FFF;font-size:2.8rem;margin:10px 0 16px 0;">The Art of Dressing the Imagination</h1>
+    <p style="color:#E0CAD0;font-size:1.1rem;line-height:1.6;">Founded with a passion for theatrical artistry, cultural heritage, and expressive storytelling through handcrafted attire.</p>
+  </div>
+</div>
+
+<div style="max-width:1100px;margin:60px auto;padding:0 24px;">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;margin-bottom:70px;">
+    <div>
+      <span style="font-size:0.8125rem;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:0.06em;">Our Purpose</span>
+      <h2 style="font-size:2.2rem;margin:8px 0 20px 0;">Authentic Outfits for Every Stage & Celebration</h2>
+      <p style="color:var(--text-body);font-size:1rem;line-height:1.7;margin-bottom:16px;">
+        COSTUME STORE was created to solve a persistent challenge faced by performers, parents, theatre directors, and cosplayers: the lack of durable, accurately tailored, and brand-new costume wear available for direct purchase in India.
+      </p>
+      <p style="color:var(--text-body);font-size:1rem;line-height:1.7;">
+        Unlike rental services with worn fabrics and uncertain hygiene, we design and produce <strong>brand new, sales-only garments</strong>. Every stitch, embroidery lace, and metallic trim is created to be owned, cherished, and worn with pride.
+      </p>
+    </div>
+    <div style="border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-md);">
+      <img src="https://images.unsplash.com/photo-1518895949257-7621c3c786d7?w=800&auto=format&fit=crop&q=80" alt="Costume Atelier" style="width:100%;height:380px;object-fit:cover;">
+    </div>
+  </div>
+
+  <!-- Key Pillars -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:30px;">
+    <div style="background:#FFFFFF;border:1px solid var(--border-color);border-radius:var(--radius-md);padding:32px;box-shadow:var(--shadow-sm);">
+      <div style="width:50px;height:50px;border-radius:50%;background:var(--secondary);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin-bottom:18px;">
+        <i class="fas fa-gem"></i>
+      </div>
+      <h3 style="font-size:1.3rem;margin-bottom:10px;">Theatrical Grade Fabrics</h3>
+      <p style="color:var(--text-muted);font-size:0.9rem;line-height:1.6;margin:0;">
+        We select rich brocades, breathable cotton blends, stretchable 4-way spandex, and authentic zari trims designed to dazzle under stage illumination while ensuring actor comfort.
+      </p>
+    </div>
+
+    <div style="background:#FFFFFF;border:1px solid var(--border-color);border-radius:var(--radius-md);padding:32px;box-shadow:var(--shadow-sm);">
+      <div style="width:50px;height:50px;border-radius:50%;background:var(--secondary);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin-bottom:18px;">
+        <i class="fas fa-ruler"></i>
+      </div>
+      <h3 style="font-size:1.3rem;margin-bottom:10px;">Precision Fit & Sizing</h3>
+      <p style="color:var(--text-muted);font-size:0.9rem;line-height:1.6;margin:0;">
+        Every costume features standardized size grading from toddler fancy dress (2-3Y) up to adult XXL, backed by detailed measurement guides and flexible adjustment ties.
+      </p>
+    </div>
+
+    <div style="background:#FFFFFF;border:1px solid var(--border-color);border-radius:var(--radius-md);padding:32px;box-shadow:var(--shadow-sm);">
+      <div style="width:50px;height:50px;border-radius:50%;background:var(--secondary);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin-bottom:18px;">
+        <i class="fas fa-boxes"></i>
+      </div>
+      <h3 style="font-size:1.3rem;margin-bottom:10px;">Complete Ensembles</h3>
+      <p style="color:var(--text-muted);font-size:0.9rem;line-height:1.6;margin:0;">
+        No need to source individual accessories separately. Our costume packages include matching stoles, belts, fabric masks, crowns, and props ready straight out of the box.
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}

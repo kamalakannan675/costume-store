@@ -1,0 +1,36 @@
+# Environment secrets
+.env
+.env.local
+.env.*.local
+
+# SQLite and local database files
+instance/*.db
+instance/*.sqlite
+instance/*.sqlite3
+instance/backups/
+*.db
+*.sqlite
+*.sqlite3
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Uploaded test media (retain folder structure via .gitkeep)
+static/uploads/products/*
+!static/uploads/products/.gitkeep
+
+# Testing and coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+*.log

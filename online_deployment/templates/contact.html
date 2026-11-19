@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+
+{% block title %}Contact Us | COSTUME STORE{% endblock %}
+
+{% block content %}
+<div style="background:var(--secondary-light);border-bottom:1px solid var(--border-color);padding:28px 24px;">
+  <div style="max-width:1400px;margin:0 auto;">
+    <h1 style="font-size:2rem;margin:0;">Contact Customer Care</h1>
+    <span style="font-size:0.875rem;color:var(--text-muted);">Have questions about custom sizing, bulk school orders, or courier dispatch? We're here to help.</span>
+  </div>
+</div>
+
+<div style="max-width:1100px;margin:40px auto;padding:0 24px;">
+  <div style="display:grid;grid-template-columns:1fr 1.2fr;gap:40px;align-items:start;">
+
+    <!-- Left: Contact Details & Hours -->
+    <div>
+      <div style="background:#FFFFFF;border:1px solid var(--border-color);border-radius:var(--radius-md);padding:30px;box-shadow:var(--shadow-sm);margin-bottom:24px;">
+        <h3 style="font-size:1.3rem;margin-bottom:18px;border-bottom:1px solid var(--border-color);padding-bottom:10px;">Get in Touch</h3>
+
+        <div style="display:flex;gap:14px;margin-bottom:18px;align-items:flex-start;">
+          <div style="width:36px;height:36px;border-radius:50%;background:var(--secondary);color:var(--primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <i class="fas fa-map-marker-alt"></i>
+          </div>
+          <div>
+            <strong style="font-size:0.9rem;display:block;">Atelier & Distribution Hub</strong>
+            <span style="font-size:0.85rem;color:var(--text-body);">{{ store_settings.address }}</span>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:14px;margin-bottom:18px;align-items:flex-start;">
+          <div style="width:36px;height:36px;border-radius:50%;background:var(--secondary);color:var(--primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <i class="fas fa-phone-alt"></i>
+          </div>
+          <div>
+            <strong style="font-size:0.9rem;display:block;">Customer Support Hotline</strong>
+            <span style="font-size:0.85rem;color:var(--text-body);">{{ store_settings.phone }} (Mon - Sat, 9:30 AM - 7:00 PM IST)</span>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:14px;align-items:flex-start;">
+          <div style="width:36px;height:36px;border-radius:50%;background:var(--secondary);color:var(--primary);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <i class="fas fa-envelope"></i>
+          </div>
+          <div>
+            <strong style="font-size:0.9rem;display:block;">Email Assistance</strong>
+            <span style="font-size:0.85rem;color:var(--text-body);">{{ store_settings.email }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bulk / Institution Notice -->
+      <div style="background:var(--secondary);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:24px;">
+        <h4 style="font-size:1rem;color:var(--primary);margin-bottom:8px;"><i class="fas fa-school" style="margin-right:6px;"></i> School & Theatre Bulk Purchases</h4>
+        <p style="font-size:0.85rem;color:var(--text-body);margin:0;line-height:1.6;">
+          Looking for matching costumes for school annual day celebrations, dance troupes, or theatre productions? Mention quantities in your message for special institutional quotation!
+        </p>
+      </div>
+    </div>
+
+    <!-- Right: Contact Form -->
+    <div style="background:#FFFFFF;border:1px solid var(--border-color);border-radius:var(--radius-md);padding:32px;box-shadow:var(--shadow-sm);">
+      <h3 style="font-size:1.3rem;margin-bottom:18px;border-bottom:1px solid var(--border-color);padding-bottom:10px;">Send a Message</h3>
+
+      <form action="{{ url_for('contact') }}" method="POST">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+          <div>
+            <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;">Your Name *</label>
+            <input type="text" name="name" required placeholder="Full Name" style="width:100%;padding:10px 14px;border:1px solid var(--border-color);border-radius:var(--radius-sm);outline:none;font-size:0.9rem;">
+          </div>
+          <div>
+            <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;">Your Email *</label>
+            <input type="email" name="email" required placeholder="you@example.com" style="width:100%;padding:10px 14px;border:1px solid var(--border-color);border-radius:var(--radius-sm);outline:none;font-size:0.9rem;">
+          </div>
+        </div>
+
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;">Subject *</label>
+          <input type="text" name="subject" required placeholder="e.g. Sizing Advice for Superhero Suit / Order Query" style="width:100%;padding:10px 14px;border:1px solid var(--border-color);border-radius:var(--radius-sm);outline:none;font-size:0.9rem;">
+        </div>
+
+        <div style="margin-bottom:24px;">
+          <label style="display:block;font-size:0.85rem;font-weight:700;margin-bottom:6px;">Message *</label>
+          <textarea name="message" required rows="5" placeholder="How can we assist you with your costume selection?" style="width:100%;padding:10px 14px;border:1px solid var(--border-color);border-radius:var(--radius-sm);outline:none;font-size:0.9rem;"></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-sm" style="padding:12px 28px;">
+          <i class="fas fa-paper-plane"></i> Send Message
+        </button>
+      </form>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

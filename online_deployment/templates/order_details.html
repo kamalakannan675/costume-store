@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+
+{% block title %}Order #{{ order.order_number }} Details | COSTUME STORE{% endblock %}
+
+{% block content %}
+<div style="background:var(--secondary-light);border-bottom:1px solid var(--border-color);padding:24px;">
+  <div style="max-width:1400px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+    <div>
+      <nav style="font-size:0.8125rem;color:var(--text-muted);margin-bottom:6px;">
+        <a href="{{ url_for('home') }}">Home</a> &nbsp;/&nbsp;
+        <a href="{{ url_for('my_orders') }}">My Orders</a> &nbsp;/&nbsp;
+        <span style="color:var(--primary);font-weight:600;">#{{ order.order_number }}</span>
+      </nav>
+      <h1 style="font-size:2rem;margin:0;">Order #{{ order.order_number }}</h1>
+    </div>
+    <a href="{{ url_for('my_orders') }}" class="btn btn-secondary btn-sm">&larr; Back to Orders</a>
+  </div>
+</div>
+
+<div style="max-width:1100px;margin:36px auto;padding:0 24px;">
+
+  <!-- Visual Order Status Tracking Bar -->
+  <div style="background:#FFFFFF;border:1px solid var(--border-color);border-radius:var(--radius-md);padding:30px;box-shadow:var(--shadow-sm);margin-bottom:32px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+      <div>
+        <span style="font-size:0.8rem;color:var(--text-muted);text-transform:uppercase;">Current Fulfillment Status</span>
+        <div style="font-size:1.4rem;font-weight:700;color:var(--primary);">{{ order.order_status }}</div>
+      </div>
+      {% if order.tracking_number or order.courier_name or order.tracking_url %}
+        <div style="background:var(--secondary-light);border:1px solid var(--border-color);padding:12px 18px;border-radius:var(--radius-sm);font-size:0.85rem;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+          <div>
+            {% if order.courier_name %}
+              <span style="color:var(--text-muted);">Courier:</span> <strong style="color:var(--primary);">{{ order.courier_name }}</strong> &nbsp;|&nbsp;
+            {% endif %}
+            <span style="color:var(--text-muted);">Tracking / AWB:</span> <strong style="color:var(--primary);">{{ order.tracking_number or 'In Transit' }}</strong>
+          </div>
+          {% if order.tracking_url %}
+            <a href="{{ order.tracking_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm" style="padding:6px 14px;font-size:0.8rem;text-decoration:none;">
+              <i class="fas fa-external-link-alt"></i> Live Tracking
+            </a>
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Tracking Steps Progression -->
+    {% set stages = ['Pending', 'Confirmed', 'Processing', 'Shipped', 'Out for Delivery', 'Delivered'] %}
+    {% set stage_reached = namespace(value=false) %}
+    <div style="display:grid;grid-template-columns:repeat(6, 1fr);gap:8px;position:relative;margin-top:20px;">
+      {% for st in stages %}
+        {% set is_current = (order.order_status == st) %}
+        {% set is_past = false %}
+        {% if order.order_status == 'Delivered' %}
+          {% set is_past = true %}
+        {% elif order.order_status == 'Out for Delivery' and st in ['Pending', 'Confirmed', 'Processing', 'Shipped'] %}
+          {% set is_past = true %}
+        {% elif order.order_status == 'Shipped' and st in ['Pending', 'Confirmed', 'Processing'] %}
+          {% set is_past = true %}
+        {% elif order.order_status == 'Processing' and st in ['Pending', 'Confirmed'] %}
+          {% set is_past = true %}
+        {% elif order.order_status == 'Confirmed' and st == 'Pending' %}
+          {% set is_past = true %}
+        {% endif %}
+
+        <div style="text-align:center;">
+          <div style="width:36px;height:36px;border-radius:50%;margin:0 auto 8px auto;display:flex;align-items:center;justify-content:center;font-size:0.9rem;font-weight:700;background:{% if is_current or is_past %}var(--primary){% else %}#E8E2D8{% endif %};color:{% if is_current or is_past %}#FFF{% else %}#888{% endif %};box-shadow:{% if is_current %}0 0 0 4px rgba(91,20,39,0.2){% else %}none{% endif %};">
+            {% if is_past and not is_current %}<i class="fas fa-check"></i>{% else %}{{ loop.index }}{% endif %}
+          </div>
+          <span style="font-size:0.75rem;font-weight:{% if is_current %}700{% else %}500{% endif %};color:{% if is_current or is_past %}var(--text-dark){% else %}var(--text-muted){% endif %};display:block;">
+            {{ st }}
+          </span>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 360px;gap:32px;align-items:start;">
+
+    <!-- Left: Order Items Snapshot -->
+    <div style="background:#FFFFFF;border:1px solid var(--border-color);border-radius:var(--radius-md);overflow:hidden;box-shadow:var(--shadow-sm);">
+      <div style="padding:18px 24px;background:var(--secondary-light);border-bottom:1px solid var(--border-color);font-weight:700;font-size:1.05rem;">
+        Items in This Order ({{ order.items|length }})
+      </div>
+
+      <div style="padding:0 24px;">
+        {% for itm in order.items %}
+          <div style="display:flex;gap:18px;padding:20px 0;border-bottom:1px solid var(--border-color);align-items:center;">
+            <div style="width:70px;height:86px;border-radius:var(--radius-sm);overflow:hidden;background:#F0ECE6;flex-shrink:0;">
+              {% if itm.image_url %}
+                <img src="{{ itm.image_url }}" alt="{{ itm.product_name }}" style="width:100%;height:100%;object-fit:cover;">
+              {% else %}
+                <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#BBB;"><i class="fas fa-image"></i></div>
+              {% endif %}
+            </div>
+
+            <div style="flex:1;">
+              <h4 style="font-size:1rem;margin-bottom:4px;color:var(--text-dark);">{{ itm.product_name }}</h4>
+              <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:6px;">
+                Size: <strong style="color:var(--text-dark);">{{ itm.size }}</strong> &bull; Colour: <strong style="color:var(--text-dark);">{{ itm.colour }}</strong>
+              </div>
+              <div style="font-size:0.85rem;color:var(--text-muted);">
+                Qty: {{ itm.quantity }} &times; ₹{{ '%.2f'|format(itm.unit_price) }}
+              </div>
+            </div>
+
+            <div style="font-weight:700;font-size:1.1rem;color:var(--primary);">
+              ₹{{ '%.2f'|format(itm.total_price) }}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Right: Receipt & Shipping Details -->
+    <div>
+      <!-- Payment & Financial Summary -->
+      <div style="background:#FFFFFF;border:1px solid var(--border-color);border-radius:var(--radius-md);padding:24px;box-shadow:var(--shadow-sm);margin-bottom:24px;">
+        <h3 style="font-size:1.15rem;margin-bottom:16px;border-bottom:1px solid var(--border-color);padding-bottom:10px;">Payment Breakdown</h3>
+
+        <div style="display:flex;justify-content:space-between;font-size:0.875rem;margin-bottom:10px;">
+          <span style="color:var(--text-muted);">Subtotal</span>
+          <span style="font-weight:600;">₹{{ '%.2f'|format(order.subtotal) }}</span>
+        </div>
+
+        {% if order.discount_amount > 0 %}
+          <div style="display:flex;justify-content:space-between;font-size:0.875rem;margin-bottom:10px;color:var(--success);">
+            <span>Coupon Discount ({{ order.coupon_code }})</span>
+            <span style="font-weight:700;">- ₹{{ '%.2f'|format(order.discount_amount) }}</span>
+          </div>
+        {% endif %}
+
+        <div style="display:flex;justify-content:space-between;font-size:0.875rem;margin-bottom:14px;">
+          <span style="color:var(--text-muted);">Delivery Charges</span>
+          <span>
+            {% if order.delivery_fee == 0 %}
+              <strong style="color:var(--success);">FREE</strong>
+            {% else %}
+              ₹{{ '%.2f'|format(order.delivery_fee) }}
+            {% endif %}
+          </span>
+        </div>
+
+        <div style="border-top:2px solid var(--border-color);padding-top:14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:baseline;">
+          <span style="font-size:1.05rem;font-weight:700;">Total Paid</span>
+          <span style="font-size:1.45rem;font-weight:700;color:var(--primary);">₹{{ '%.2f'|format(order.total_amount) }}</span>
+        </div>
+
+        <div style="font-size:0.8rem;color:var(--text-muted);">
+          Payment Method: <strong style="text-transform:uppercase;color:var(--text-dark);">{{ order.payment_method }}</strong><br>
+          Payment Status: <strong style="color:{{ 'var(--success)' if order.payment_status == 'paid' else 'var(--warning)' }};text-transform:uppercase;">{{ order.payment_status }}</strong>
+        </div>
+      </div>
+
+      <!-- Shipping Destination -->
+      <div style="background:#FFFFFF;border:1px solid var(--border-color);border-radius:var(--radius-md);padding:24px;box-shadow:var(--shadow-sm);">
+        <h3 style="font-size:1.15rem;margin-bottom:14px;border-bottom:1px solid var(--border-color);padding-bottom:10px;">Delivery Address</h3>
+        <p style="font-size:0.875rem;line-height:1.6;margin:0;color:var(--text-body);">
+          <strong style="color:var(--text-dark);">{{ order.full_name }}</strong><br>
+          {{ order.shipping_address }}<br>
+          {{ order.city }}, {{ order.state }} - {{ order.pincode }}<br>
+          Phone: {{ order.phone }}<br>
+          Email: {{ order.email }}
+        </p>
+
+        {% if order.notes %}
+          <div style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--border-color);font-size:0.8rem;color:var(--text-muted);">
+            <strong>Delivery Note:</strong> {{ order.notes }}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
