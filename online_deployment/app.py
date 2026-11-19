@@ -220,6 +220,7 @@ def sync_admin_from_env(application=None):
     # Validate email syntax
     is_prod = (
         os.environ.get('FLASK_ENV', '').lower() == 'production' or
+        bool(os.environ.get('VERCEL')) or
         bool(os.environ.get('RENDER'))
     )
     is_valid_email = False
@@ -3285,7 +3286,7 @@ def api_variant_stock():
 
 @app.route('/health', methods=['GET'])
 def health_check():
-    """Health check endpoint for Render, load-balancers, and monitoring."""
+    """Health check endpoint for Vercel, load-balancers, and monitoring."""
     status = {
         'status': 'healthy',
         'service': 'COSTUME STORE E-Commerce',
@@ -3316,6 +3317,7 @@ def init_application_database(application):
     """
     is_prod = (
         os.environ.get('FLASK_ENV', '').lower() == 'production' or
+        bool(os.environ.get('VERCEL')) or
         bool(os.environ.get('RENDER'))
     )
     with application.app_context():

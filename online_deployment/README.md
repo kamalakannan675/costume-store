@@ -1,14 +1,14 @@
-# Costume Store — Online Deployment & Cloud Production Architecture
+# Costume Store — Vercel & Neon PostgreSQL Deployment Architecture
 
-A modern, full-featured Flask and PostgreSQL e-commerce platform specializing in authentic Indian traditional attire and cultural costumes.
+A modern, high-performance, full-featured Flask and Neon PostgreSQL e-commerce platform specializing in authentic Indian traditional attire and cultural costumes.
 
 ---
 
 ## 1. System Overview & Architecture
 
 - **Web Framework**: Flask 3.1.0 (Python 3.11+)
-- **WSGI Application Server**: Gunicorn 21.2.0 (4 worker processes recommended)
-- **Database (Production)**: Managed PostgreSQL (Render Postgres, Supabase, Neon, AWS RDS)
+- **Serverless Runtime**: Vercel Serverless Functions (`api/index.py` WSGI entrypoint)
+- **Database (Production)**: Managed Serverless Neon PostgreSQL with PgBouncer connection pooling
 - **Database (Development)**: Independent SQLite (`instance/costume_store.db`)
 - **Object-Relational Mapping**: Flask-SQLAlchemy 3.1.1
 - **Payment Processing**: Razorpay Payment Gateway (Test Mode default; Live Mode ready)
@@ -24,9 +24,8 @@ A modern, full-featured Flask and PostgreSQL e-commerce platform specializing in
 online_deployment/
 ├── .env.example                    # Clean production environment template
 ├── .gitignore                      # Strict Git exclusions (no secrets, databases, or local media)
-├── Procfile                        # Render & Heroku process definition (gunicorn)
 ├── README.md                       # Main architecture & developer documentation
-├── render.yaml                     # Render infrastructure Blueprint
+├── vercel.json                     # Vercel configuration & rewrite rules
 ├── requirements.txt                # Production dependencies
 ├── run.py                          # Local development server entrypoint
 ├── app.py                          # Application factory, routes, and WSGI entrypoint
@@ -36,11 +35,14 @@ online_deployment/
 ├── sales_service.py                # Sales analytics, financial accounting & report generation
 ├── email_service.py                # Transactional email & OTP delivery
 ├── india_locations.py              # Indian address validation & heuristics
-├── deployment_docs/                # Dedicated operational manuals
-│   ├── DATABASE_MIGRATION.md       # PostgreSQL schema setup & catalogue import
-│   ├── DEPLOYMENT_CHECKLIST.md     # Pre-flight production deployment steps
-│   ├── ENVIRONMENT_VARIABLES.md    # Exhaustive environment variable specification
-│   └── RAZORPAY_LIVE_ACTIVATION.md # Razorpay live mode switchover instructions
+├── api/
+│   └── index.py                    # Vercel Serverless Function entrypoint exposing 'app'
+├── docs/                           # Dedicated operational manuals
+│   ├── VERCEL_DEPLOYMENT_GUIDE.md  # Comprehensive step-by-step Vercel guide
+│   ├── NEON_DATABASE_SETUP.md      # Neon PostgreSQL provisioning & pooling guide
+│   ├── VERCEL_ENVIRONMENT_VARIABLES.md # Complete environment variable reference
+│   ├── DATABASE_INITIALIZATION.md  # PostgreSQL schema setup & catalogue import
+│   └── PRODUCTION_DEPLOYMENT_CHECKLIST.md # Pre-flight production checklist
 ├── scripts/
 │   ├── import_catalogue.py         # Explicit, idempotent catalogue import utility
 │   ├── init_db.py                  # Local database schema initialisation
@@ -52,7 +54,7 @@ online_deployment/
 │   └── uploads/                    # Dynamic upload mount directory
 ├── templates/                      # Jinja2 HTML responsive templates
 └── tests/                          # Independent deployment test suite
-    └── test_online_deployment.py   # 16 automated tests covering all 22 deployment requirements
+    └── test_online_deployment.py   # Automated tests covering Vercel, Neon, and all core flows
 ```
 
 ---
@@ -87,50 +89,20 @@ online_deployment/
 
 ---
 
-## 4. Production Deployment on Render
+## 4. Production Deployment on Vercel
 
-### Step 1: Create Managed PostgreSQL
-1. Log in to the [Render Dashboard](https://dashboard.render.com/).
-2. Click **New +** -> **PostgreSQL**.
-3. Name: `costume-store-postgres`.
-4. Copy the **Internal Database URL**.
+Follow the step-by-step guide in [docs/VERCEL_DEPLOYMENT_GUIDE.md](docs/VERCEL_DEPLOYMENT_GUIDE.md):
 
-### Step 2: Create Web Service
-1. Click **New +** -> **Web Service**.
-2. Connect your Git repository (`https://github.com/kamalakannan675/costume-store.git`).
-3. Set **Root Directory**: `online_deployment`.
-4. Runtime: `Python 3`.
-5. Build Command: `pip install -r requirements.txt`.
-6. Start Command: `gunicorn -w 4 -b 0.0.0.0:$PORT "app:app"`.
-
-### Step 3: Configure Environment Variables
-In the Render Web Service settings, add the required environment variables:
-- `FLASK_ENV`: `production`
-- `DEBUG`: `False`
-- `DATABASE_URL`: *(Your Render PostgreSQL connection string)*
-- `FLASK_SECRET_KEY`: *(Generate using `python -c "import secrets; print(secrets.token_hex(32))"`)*
-- `OTP_SECRET_KEY`: *(Generate using `python -c "import secrets; print(secrets.token_hex(32))"`)*
-- `ADMIN_EMAIL`: `admin@yourstore.com`
-- `ADMIN_NAME`: `Store Administrator`
-- `ADMIN_PASSWORD`: *(A strong password with >= 8 chars, uppercase, lowercase, digit, symbol)*
-- `RAZORPAY_MODE`: `test` (or `live` when activated)
-- `RAZORPAY_KEY_ID`: *(Your Razorpay Key ID)*
-- `RAZORPAY_KEY_SECRET`: *(Your Razorpay Key Secret)*
-
-### Step 4: Import Catalogue to PostgreSQL
-Once the Web Service is deployed:
-1. Open the **Shell** tab in the Render Dashboard for your Web Service.
-2. Run the explicit catalogue import utility:
-   ```bash
-   python scripts/import_catalogue.py --confirm
-   ```
-3. This creates all schema tables and imports all 32 categories, 26 products, 97 variants, 26 images, 4 coupons, and 10 store settings without creating dummy user accounts or orders.
+1. **Provision Database**: Create a project in [Neon Console](https://console.neon.tech/) and copy the pooled connection string.
+2. **Import Project into Vercel**: Connect repository `kamalakannan675/costume-store`, branch `online-deployment`, root directory `online_deployment`.
+3. **Configure Environment Variables**: Add `DATABASE_URL`, `FLASK_SECRET_KEY`, `OTP_SECRET_KEY`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and Razorpay keys in Vercel Project Settings.
+4. **Deploy**: Click Deploy.
+5. **Import Catalogue**: Run `python scripts/import_catalogue.py --target-db "<neon-uri>" --confirm` from your local environment to seed the 26 approved products into Neon.
 
 ---
 
 ## 5. Health Monitoring & Verification
 
-Render health check is built-in:
 - **Endpoint**: `GET /health`
 - **Response**:
   ```json
@@ -138,7 +110,7 @@ Render health check is built-in:
     "status": "healthy",
     "service": "COSTUME STORE E-Commerce",
     "database": "connected",
-    "timestamp": "2026-11-19T13:30:00.000000"
+    "timestamp": "2026-11-19T14:30:00.000000"
   }
   ```
 
@@ -150,4 +122,4 @@ Run the isolated deployment test suite:
 ```bash
 python -m unittest tests/test_online_deployment.py
 ```
-*All 16 tests execute in under 3 seconds using isolated in-memory or ephemeral databases.*
+*All tests execute using isolated in-memory or ephemeral databases.*

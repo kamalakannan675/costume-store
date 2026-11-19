@@ -179,10 +179,10 @@ class OnlineDeploymentTestCase(unittest.TestCase):
     # 3. DATABASE URL NORMALIZATION & POSTGRESQL READINESS
     # --------------------------------------------------------------------------
     def test_03_database_url_normalization(self):
-        """Verify postgres:// is correctly normalized to postgresql://."""
-        raw = "postgres://usr:pwd@render-host.com:5432/costumedb"
+        """Verify postgres:// is correctly normalized to postgresql:// and sslmode=require is enforced."""
+        raw = "postgres://usr:pwd@db-host.com:5432/costumedb"
         normalized = normalize_database_url(raw)
-        self.assertEqual(normalized, "postgresql://usr:pwd@render-host.com:5432/costumedb")
+        self.assertEqual(normalized, "postgresql://usr:pwd@db-host.com:5432/costumedb?sslmode=require")
 
     # --------------------------------------------------------------------------
     # 4. ZERO REFERENCE TO OFFLINE DATABASE
@@ -535,6 +535,114 @@ class OnlineDeploymentTestCase(unittest.TestCase):
                     os.remove(temp_import_db)
                 except OSError:
                     pass
+
+    # --------------------------------------------------------------------------
+    # 17. VERCEL SERVERLESS ENTRYPOINT & REWRITES
+    # --------------------------------------------------------------------------
+    def test_17_vercel_serverless_entrypoint(self):
+        """Verify api/index.py entrypoint exposes WSGI app and routes properly."""
+        entrypoint_path = os.path.join(ONLINE_ROOT, "api", "index.py")
+        self.assertTrue(os.path.exists(entrypoint_path), "api/index.py must exist")
+
+        # Import api.index
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("vercel_entrypoint", entrypoint_path)
+        vercel_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(vercel_mod)
+
+        self.assertTrue(hasattr(vercel_mod, "app"), "api/index.py must export 'app'")
+        
+        # Test WSGI test_client through vercel_mod.app
+        v_client = vercel_mod.app.test_client()
+        res = v_client.get('/health')
+        self.assertEqual(res.status_code, 200)
+        json_data = json.loads(res.data)
+        self.assertEqual(json_data.get('status'), 'healthy')
+
+    # --------------------------------------------------------------------------
+    # 18. NEON POSTGRESQL URL & SSL NORMALIZATION
+    # --------------------------------------------------------------------------
+    def test_18_neon_postgresql_url_and_ssl(self):
+        """Verify Neon PostgreSQL URL handling, sslmode enforcement and serverless pooling."""
+        # 1. normalize_database_url postgres: -> postgresql: and sslmode=require
+        neon_raw = "postgres://alex:secret123@ep-sweet-glade-a2z.us-east-2.aws.neon.tech/neondb"
+        normalized = normalize_database_url(neon_raw)
+        self.assertTrue(normalized.startswith("postgresql://"))
+        self.assertIn("sslmode=require", normalized)
+
+        # 2. Preserves already present sslmode
+        neon_with_ssl = "postgresql://alex:secret123@ep-sweet-glade-a2z.us-east-2.aws.neon.tech/neondb?sslmode=require"
+        normalized_ssl = normalize_database_url(neon_with_ssl)
+        self.assertEqual(normalized_ssl.count("sslmode=require"), 1)
+
+        # 3. Serverless pool engine options when VERCEL=1
+        os.environ['VERCEL'] = '1'
+        try:
+            import importlib
+            import config
+            importlib.reload(config)
+            engine_opts = config.Config.SQLALCHEMY_ENGINE_OPTIONS
+            self.assertTrue(engine_opts.get('pool_pre_ping'), "pool_pre_ping must be True")
+            self.assertEqual(engine_opts.get('pool_size'), 2, "pool_size must be 2 for serverless")
+            self.assertEqual(engine_opts.get('max_overflow'), 3, "max_overflow must be 3 for serverless")
+            self.assertEqual(engine_opts.get('pool_recycle'), 300, "pool_recycle must be 300")
+        finally:
+            os.environ.pop('VERCEL', None)
+            import importlib
+            import config
+            importlib.reload(config)
+
+    # --------------------------------------------------------------------------
+    # 19. NO ACTIVE RENDER FILES & VERCEL CONFIG VALIDATION
+    # --------------------------------------------------------------------------
+    def test_19_no_active_render_files(self):
+        """Assert no active Render deployment artifacts exist in online_deployment/."""
+        render_yaml = os.path.join(ONLINE_ROOT, "render.yaml")
+        procfile = os.path.join(ONLINE_ROOT, "Procfile")
+        deployment_docs = os.path.join(ONLINE_ROOT, "deployment_docs")
+
+        self.assertFalse(os.path.exists(render_yaml), "render.yaml should be isolated, not in online_deployment/")
+        self.assertFalse(os.path.exists(procfile), "Procfile should be isolated, not in online_deployment/")
+        self.assertFalse(os.path.exists(deployment_docs), "deployment_docs/ should be isolated, not in online_deployment/")
+
+        # Verify vercel.json exists and is valid JSON
+        vercel_json_path = os.path.join(ONLINE_ROOT, "vercel.json")
+        self.assertTrue(os.path.exists(vercel_json_path), "vercel.json must exist in online_deployment/")
+        with open(vercel_json_path, 'r', encoding='utf-8') as f:
+            v_config = json.load(f)
+        self.assertIn("rewrites", v_config)
+        self.assertEqual(v_config["rewrites"][0]["destination"], "/api/index")
+
+    # --------------------------------------------------------------------------
+    # 20. STATIC ASSETS SERVING & HEALTH CHECK
+    # --------------------------------------------------------------------------
+    def test_20_static_assets_serving(self):
+        """Verify core static assets, location data and images are reachable."""
+        # CSS
+        res_css = self.client.get('/static/css/style.css')
+        self.assertEqual(res_css.status_code, 200)
+
+        # JS
+        res_js = self.client.get('/static/js/main.js')
+        self.assertEqual(res_js.status_code, 200)
+
+        # India Locations JSON
+        res_loc = self.client.get('/static/js/india_locations.json')
+        self.assertEqual(res_loc.status_code, 200)
+
+        # Placeholder image
+        res_ph = self.client.get('/static/images/placeholder-costume.jpg')
+        self.assertEqual(res_ph.status_code, 200)
+
+        # Catalog product image
+        res_img = self.client.get('/static/images/products/women/banarasi-saree-01.jpg')
+        self.assertEqual(res_img.status_code, 200)
+
+        # Health endpoint
+        res_health = self.client.get('/health')
+        self.assertEqual(res_health.status_code, 200)
+        data = json.loads(res_health.data)
+        self.assertEqual(data.get('status'), 'healthy')
 
 
 if __name__ == '__main__':
