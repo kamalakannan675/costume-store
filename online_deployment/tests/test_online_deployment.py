@@ -537,23 +537,18 @@ class OnlineDeploymentTestCase(unittest.TestCase):
                     pass
 
     # --------------------------------------------------------------------------
-    # 17. VERCEL SERVERLESS ENTRYPOINT & REWRITES
+    # 17. VERCEL NATIVE FLASK ENTRYPOINT & FRAMEWORK DETECTION
     # --------------------------------------------------------------------------
-    def test_17_vercel_serverless_entrypoint(self):
-        """Verify api/index.py entrypoint exposes WSGI app and routes properly."""
-        entrypoint_path = os.path.join(ONLINE_ROOT, "api", "index.py")
-        self.assertTrue(os.path.exists(entrypoint_path), "api/index.py must exist")
+    def test_17_vercel_native_flask_entrypoint(self):
+        """Verify app.py root entrypoint exposes WSGI app and routes properly without legacy api/index.py."""
+        entrypoint_path = os.path.join(ONLINE_ROOT, "app.py")
+        self.assertTrue(os.path.exists(entrypoint_path), "app.py must exist at project root for native detection")
 
-        # Import api.index
-        import importlib.util
-        spec = importlib.util.spec_from_file_location("vercel_entrypoint", entrypoint_path)
-        vercel_mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(vercel_mod)
-
-        self.assertTrue(hasattr(vercel_mod, "app"), "api/index.py must export 'app'")
+        from app import app as native_app
+        self.assertIsNotNone(native_app, "app.py must export top-level 'app'")
         
-        # Test WSGI test_client through vercel_mod.app
-        v_client = vercel_mod.app.test_client()
+        # Test WSGI test_client through native_app
+        v_client = native_app.test_client()
         res = v_client.get('/health')
         self.assertEqual(res.status_code, 200)
         json_data = json.loads(res.data)
@@ -593,38 +588,44 @@ class OnlineDeploymentTestCase(unittest.TestCase):
             importlib.reload(config)
 
     # --------------------------------------------------------------------------
-    # 19. NO ACTIVE RENDER FILES & VERCEL CONFIG VALIDATION
+    # 19. NO ACTIVE RENDER FILES & LEGACY ENTRYPOINT REMOVAL
     # --------------------------------------------------------------------------
-    def test_19_no_active_render_files(self):
-        """Assert no active Render deployment artifacts exist in online_deployment/."""
+    def test_19_no_active_render_or_legacy_files(self):
+        """Assert no active Render artifacts or legacy api/index.py exist in online_deployment/."""
         render_yaml = os.path.join(ONLINE_ROOT, "render.yaml")
         procfile = os.path.join(ONLINE_ROOT, "Procfile")
         deployment_docs = os.path.join(ONLINE_ROOT, "deployment_docs")
+        api_dir = os.path.join(ONLINE_ROOT, "api")
 
         self.assertFalse(os.path.exists(render_yaml), "render.yaml should be isolated, not in online_deployment/")
         self.assertFalse(os.path.exists(procfile), "Procfile should be isolated, not in online_deployment/")
         self.assertFalse(os.path.exists(deployment_docs), "deployment_docs/ should be isolated, not in online_deployment/")
-
-        # Verify vercel.json exists and is valid JSON
-        vercel_json_path = os.path.join(ONLINE_ROOT, "vercel.json")
-        self.assertTrue(os.path.exists(vercel_json_path), "vercel.json must exist in online_deployment/")
-        with open(vercel_json_path, 'r', encoding='utf-8') as f:
-            v_config = json.load(f)
-        self.assertIn("rewrites", v_config)
-        self.assertEqual(v_config["rewrites"][0]["destination"], "/api/index")
+        self.assertFalse(os.path.exists(api_dir), "legacy api/ directory must be removed for native Flask detection")
 
     # --------------------------------------------------------------------------
-    # 20. STATIC ASSETS SERVING & HEALTH CHECK
+    # 20. STATIC ASSETS & PUBLIC CDN SERVING
     # --------------------------------------------------------------------------
     def test_20_static_assets_serving(self):
-        """Verify core static assets, location data and images are reachable."""
+        """Verify core static assets, location data and images are reachable via /static/ and /public CDN."""
+        # Verify public/ directory exists
+        public_dir = os.path.join(ONLINE_ROOT, "public")
+        self.assertTrue(os.path.exists(public_dir), "public/ directory must exist for Vercel CDN")
+
         # CSS
         res_css = self.client.get('/static/css/style.css')
         self.assertEqual(res_css.status_code, 200)
 
+        # Direct CDN route for CSS
+        res_cdn_css = self.client.get('/css/style.css')
+        self.assertEqual(res_cdn_css.status_code, 200)
+
         # JS
         res_js = self.client.get('/static/js/main.js')
         self.assertEqual(res_js.status_code, 200)
+
+        # Direct CDN route for JS
+        res_cdn_js = self.client.get('/js/main.js')
+        self.assertEqual(res_cdn_js.status_code, 200)
 
         # India Locations JSON
         res_loc = self.client.get('/static/js/india_locations.json')
@@ -633,6 +634,10 @@ class OnlineDeploymentTestCase(unittest.TestCase):
         # Placeholder image
         res_ph = self.client.get('/static/images/placeholder-costume.jpg')
         self.assertEqual(res_ph.status_code, 200)
+
+        # Direct CDN route for images
+        res_cdn_ph = self.client.get('/images/placeholder-costume.jpg')
+        self.assertEqual(res_cdn_ph.status_code, 200)
 
         # Catalog product image
         res_img = self.client.get('/static/images/products/women/banarasi-saree-01.jpg')

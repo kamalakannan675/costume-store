@@ -15,11 +15,33 @@ How to initialize database schema and populate the approved 26-product Indian tr
 
 ## 2. One-Time Execution Procedure
 
-Execute the import script from your local development machine pointing directly to your Neon database:
+Execute the import script from your local development machine pointing directly to your Neon database.
 
-### Command:
+> [!IMPORTANT]
+> **Avoid exposing passwords in shell history.** Instead of passing the connection string as a command-line argument, set it as a session environment variable (`TARGET_DATABASE_URL`).
+
+### Linux / macOS (Bash / Zsh):
 ```bash
-python scripts/import_catalogue.py --target-db "postgresql://neondb_owner:YourPassword@ep-xyz-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require" --confirm
+# 1. Export the protected environment variable for the session
+export TARGET_DATABASE_URL="postgresql://neondb_owner:YourPassword@ep-xyz-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+
+# 2. Run the decoupled migration script with confirmation
+python scripts/import_catalogue.py --confirm
+
+# 3. Clean up the environment variable
+unset TARGET_DATABASE_URL
+```
+
+### Windows (PowerShell):
+```powershell
+# 1. Set the environment variable for the current PowerShell session
+$env:TARGET_DATABASE_URL="postgresql://neondb_owner:YourPassword@ep-xyz-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+
+# 2. Run the decoupled migration script with confirmation
+python scripts/import_catalogue.py --confirm
+
+# 3. Clean up the environment variable
+Remove-Item Env:\TARGET_DATABASE_URL
 ```
 
 ### What Happens:

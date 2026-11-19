@@ -1,0 +1,29 @@
+# Vercel Deployment Ignore Rules
+# Exclude non-runtime assets from the serverless function bundle
+
+# Local SQLite databases and instance directories
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment and secrets
+.env
+.env.*
+.env.local
+
+# Testing suite and test artifacts
+tests/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# Internal documentation (served via docs or repository)
+docs/
+
+# Vercel local cache
+.vercel/

@@ -1,7 +1,7 @@
 """
 COSTUME STORE — Catalogue Migration & Import Utility
 Explicitly invoked standalone utility to import the approved catalogue into a
-newly provisioned target database (PostgreSQL in production, or SQLite in development).
+newly provisioned target database (Neon PostgreSQL in production, or SQLite in development).
 
 Includes:
   - 32 Categories (hierarchy preserved)
@@ -17,9 +17,16 @@ Explicitly EXCLUDES:
   - Payment transactions
   - Customer addresses, reviews, wishlists, and OTP tokens
 
-Usage:
+Recommended Usage (Protected Environment Variable):
+  # Linux / macOS / Bash:
+  export TARGET_DATABASE_URL="postgresql://user:pass@ep-name-pooler.region.aws.neon.tech/neondb?sslmode=require"
   python scripts/import_catalogue.py --confirm
-  python scripts/import_catalogue.py --target-db "postgresql://user:pass@host/dbname" --confirm
+  unset TARGET_DATABASE_URL
+
+  # Windows PowerShell:
+  $env:TARGET_DATABASE_URL="postgresql://user:pass@ep-name-pooler.region.aws.neon.tech/neondb?sslmode=require"
+  python scripts/import_catalogue.py --confirm
+  Remove-Item Env:\TARGET_DATABASE_URL
 """
 
 import os
@@ -34,16 +41,17 @@ if PROJECT_ROOT not in sys.path:
 
 def run_catalogue_import(target_db_url: str = None):
     """Imports the approved 26-product catalogue idempotently into the target database."""
-    if target_db_url:
-        os.environ['DATABASE_URL'] = target_db_url
+    effective_url = target_db_url or os.environ.get('TARGET_DATABASE_URL') or os.environ.get('DATABASE_URL')
+    if effective_url:
+        os.environ['DATABASE_URL'] = effective_url
 
     from config import normalize_database_url
     from app import app
     from models import db, Category, Product, ProductVariant, ProductImage, Coupon, StoreSetting
     from scripts.seed_database import seed_database
 
-    if target_db_url:
-        app.config['SQLALCHEMY_DATABASE_URI'] = normalize_database_url(target_db_url)
+    if effective_url:
+        app.config['SQLALCHEMY_DATABASE_URI'] = normalize_database_url(effective_url)
 
     target_uri = app.config['SQLALCHEMY_DATABASE_URI']
     safe_display_url = target_uri
@@ -90,7 +98,7 @@ def main():
     parser = argparse.ArgumentParser(description="Costume Store Catalogue Import Utility")
     parser.add_argument(
         '--target-db',
-        help="Target database connection URL (e.g. postgresql://user:pass@host/dbname). Defaults to DATABASE_URL env var."
+        help="(Optional fallback) Target database connection URL. Note: Setting TARGET_DATABASE_URL environment variable is preferred to keep credentials out of shell history."
     )
     parser.add_argument(
         '--confirm',
@@ -101,11 +109,13 @@ def main():
 
     if not args.confirm:
         print("[SAFETY ABORT] Execution cancelled.")
-        print("To execute catalogue import, you must explicitly provide the --confirm flag:")
+        print("To execute catalogue import, provide the --confirm flag and set TARGET_DATABASE_URL:")
+        print("  export TARGET_DATABASE_URL='postgresql://user:pass@ep-xyz-pooler.region.aws.neon.tech/neondb?sslmode=require'")
         print("  python scripts/import_catalogue.py --confirm")
-        print("Or with an explicit PostgreSQL URL:")
-        print("  python scripts/import_catalogue.py --target-db 'postgresql://user:pass@host/dbname' --confirm")
         sys.exit(1)
+
+    if args.target_db:
+        print("[SECURITY NOTICE] Target DB passed via CLI argument. For production safety, prefer using the TARGET_DATABASE_URL environment variable to avoid storing credentials in shell history.")
 
     run_catalogue_import(args.target_db)
 

@@ -7,8 +7,9 @@ Deploying the Costume Store online application to Vercel with Neon PostgreSQL.
 ## 1. Architecture Overview
 
 - **Hosting Platform**: Vercel Serverless Functions (Python 3.11 Runtime)
-- **Framework**: Flask 3.1.0 WSGI exposed via `api/index.py`
+- **Framework**: Flask 3.1.0 WSGI (Native Vercel Flask Framework Detection via `app.py`)
 - **Database**: Managed Serverless Neon PostgreSQL (Free Tier supported)
+- **Static Assets**: Vercel Edge Global CDN via `public/` directory
 - **Object Storage**: S3-Compatible Storage (AWS S3, Cloudflare R2, Supabase)
 - **Payment Processing**: Razorpay (Test Mode default)
 - **Source Control**: GitHub (`https://github.com/kamalakannan675/costume-store.git`, branch: `online-deployment`)
@@ -34,7 +35,7 @@ Follow [NEON_DATABASE_SETUP.md](NEON_DATABASE_SETUP.md) to create your free serv
 2. Click **Add New...** -> **Project**.
 3. Select your repository: `kamalakannan675/costume-store`.
 4. In the Project Configuration screen:
-   - **Framework Preset**: Select **Other**.
+   - **Framework Preset**: Automatically detected as **Flask** (or select **Flask**).
    - **Root Directory**: Click **Edit** and choose `online_deployment`.
    - **Build Command**: Leave default (empty or Vercel managed).
    - **Output Directory**: Leave default.

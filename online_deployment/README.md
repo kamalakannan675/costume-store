@@ -97,7 +97,7 @@ Follow the step-by-step guide in [docs/VERCEL_DEPLOYMENT_GUIDE.md](docs/VERCEL_D
 2. **Import Project into Vercel**: Connect repository `kamalakannan675/costume-store`, branch `online-deployment`, root directory `online_deployment`.
 3. **Configure Environment Variables**: Add `DATABASE_URL`, `FLASK_SECRET_KEY`, `OTP_SECRET_KEY`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and Razorpay keys in Vercel Project Settings.
 4. **Deploy**: Click Deploy.
-5. **Import Catalogue**: Run `python scripts/import_catalogue.py --target-db "<neon-uri>" --confirm` from your local environment to seed the 26 approved products into Neon.
+5. **Import Catalogue**: Set `export TARGET_DATABASE_URL="<neon-uri>"` and run `python scripts/import_catalogue.py --confirm` from your local environment to seed the 26 approved products into Neon.
 
 ---
 

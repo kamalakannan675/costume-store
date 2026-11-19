@@ -16,7 +16,7 @@ from urllib.parse import urlparse, urljoin
 
 from flask import (
     Flask, render_template, redirect, url_for,
-    session, request, flash, jsonify, abort, send_file, Response
+    session, request, flash, jsonify, abort, send_file, Response, send_from_directory
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -65,7 +65,13 @@ from sales_service import (
 
 from config import Config, get_config
 
-app = Flask(__name__)
+# Configure static assets: Vercel CDN serves public/ directly at edge;
+# Flask uses public/static (or static) as local development fallback.
+_base_dir = os.path.dirname(os.path.abspath(__file__))
+_public_static = os.path.join(_base_dir, 'public', 'static')
+_static_folder = _public_static if os.path.exists(_public_static) else os.path.join(_base_dir, 'static')
+
+app = Flask(__name__, static_folder=_static_folder, static_url_path='/static')
 active_config = get_config()
 app.config.from_object(active_config)
 ALLOWED_EXTENSIONS = app.config.get('ALLOWED_EXTENSIONS', {'png', 'jpg', 'jpeg', 'webp', 'gif'})
@@ -73,6 +79,15 @@ ALLOWED_EXTENSIONS = app.config.get('ALLOWED_EXTENSIONS', {'png', 'jpg', 'jpeg',
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 db.init_app(app)
 storage_service.init_app(app)
+
+
+@app.route('/<any(css, js, images):folder>/<path:filename>')
+def serve_public_asset(folder, filename):
+    """Fallback route for local testing of root-relative CDN assets (css, js, images)."""
+    public_dir = os.path.join(_base_dir, 'public', folder)
+    if os.path.exists(public_dir):
+        return send_from_directory(public_dir, filename)
+    abort(404)
 
 
 # ------------------------------------------------------------------------------

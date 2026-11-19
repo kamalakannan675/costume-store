@@ -34,3 +34,6 @@ static/uploads/products/*
 .coverage
 htmlcov/
 *.log
+
+# Vercel local cache
+.vercel/

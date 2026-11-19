@@ -8,7 +8,7 @@ Pre-flight and post-deployment checklist for launching the Costume Store online 
 - [ ] Created Neon project (`costume-store-db`).
 - [ ] Copied Pooled Connection String (`-pooler`).
 - [ ] Confirmed `?sslmode=require` is present in the URI.
-- [ ] Executed `python scripts/import_catalogue.py --target-db "<neon-uri>" --confirm`.
+- [ ] Executed catalogue import via protected environment variable (`TARGET_DATABASE_URL="<neon-uri>"` + `python scripts/import_catalogue.py --confirm`).
 - [ ] Verified table counts: 32 categories, 26 products, 97 variants.
 
 ---
@@ -25,8 +25,9 @@ Pre-flight and post-deployment checklist for launching the Costume Store online 
 - [ ] Connected repository `kamalakannan675/costume-store`.
 - [ ] Selected branch: `online-deployment`.
 - [ ] Configured Root Directory: `online_deployment`.
-- [ ] Verified `api/index.py` exists as the serverless entrypoint.
-- [ ] Verified `vercel.json` exists with rewrite rule to `/api/index`.
+- [ ] Framework preset detected as **Flask** via native `app.py` entrypoint.
+- [ ] Confirmed static assets are served from `public/` directory via Vercel Edge CDN.
+- [ ] Confirmed no legacy `api/index.py` or catch-all rewrites are required.
 - [ ] Added all required environment variables in Vercel Project Settings.
 
 ---
