@@ -3,10 +3,30 @@ import re
 from datetime import timedelta
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+is_serverless = bool(os.environ.get('VERCEL') or os.environ.get('AWS_LAMBDA_FUNCTION_NAME'))
+
 INSTANCE_DIR = os.path.join(BASE_DIR, 'instance')
-os.makedirs(INSTANCE_DIR, exist_ok=True)
 DEFAULT_SQLITE_DB = os.path.join(INSTANCE_DIR, 'costume_store.db').replace('\\', '/')
-DEFAULT_SQLITE_URI = f"sqlite:///{DEFAULT_SQLITE_DB}"
+# In serverless environments, SQLite is strictly disabled; in local development, local SQLite path is used
+DEFAULT_SQLITE_URI = "" if is_serverless else f"sqlite:///{DEFAULT_SQLITE_DB}"
+
+# Create instance directory ONLY in local development, NEVER in serverless read-only runtimes
+if not is_serverless:
+    try:
+        os.makedirs(INSTANCE_DIR, exist_ok=True)
+    except OSError:
+        pass
+
+
+def get_temp_dir():
+    """Returns an environment-appropriate temporary directory (created only on demand)."""
+    serverless = bool(os.environ.get('VERCEL') or os.environ.get('AWS_LAMBDA_FUNCTION_NAME'))
+    tmp_path = '/tmp/costume-store' if serverless else os.path.join(BASE_DIR, 'tmp')
+    try:
+        os.makedirs(tmp_path, exist_ok=True)
+    except OSError:
+        pass
+    return tmp_path
 
 
 def parse_bool(val, default=False):
@@ -27,17 +47,19 @@ def normalize_database_url(url: str) -> str:
     """
     Normalizes PostgreSQL database URLs for SQLAlchemy 2.x and psycopg2.
     Supports Neon PostgreSQL, standard PostgreSQL, and cloud connection poolers.
-    Replaces deprecated 'postgres://' with 'postgresql://'.
+    Replaces deprecated 'postgres://' or driverless 'postgresql://' with 'postgresql+psycopg2://'.
     Ensures remote PostgreSQL URLs have sslmode=require if not present.
     """
     if not url:
         return ""
     cleaned = url.strip()
     if cleaned.startswith('postgres://'):
-        cleaned = cleaned.replace('postgres://', 'postgresql://', 1)
+        cleaned = cleaned.replace('postgres://', 'postgresql+psycopg2://', 1)
+    elif cleaned.startswith('postgresql://'):
+        cleaned = cleaned.replace('postgresql://', 'postgresql+psycopg2://', 1)
 
     # For Neon and remote PostgreSQL, ensure sslmode=require is present if not local SQLite or localhost
-    if cleaned.startswith(('postgresql://', 'postgres://')):
+    if cleaned.startswith(('postgresql+psycopg2://', 'postgresql://', 'postgres://')):
         if 'localhost' not in cleaned and '127.0.0.1' not in cleaned and 'sqlite' not in cleaned:
             if 'sslmode=' not in cleaned:
                 delimiter = '&' if '?' in cleaned else '?'
@@ -55,12 +77,15 @@ class Config:
     if raw_db_url and raw_db_url.strip():
         db_url = normalize_database_url(raw_db_url)
         if db_url.startswith('sqlite:///'):
-            path_part = db_url[len('sqlite:///'):]
-            if not os.path.isabs(path_part) and not path_part.startswith('/'):
-                abs_db_path = os.path.abspath(os.path.join(BASE_DIR, path_part)).replace('\\', '/')
-                db_url = f"sqlite:///{abs_db_path}"
+            if is_serverless:
+                db_url = ""  # Strictly prohibit SQLite in serverless
+            else:
+                path_part = db_url[len('sqlite:///'):]
+                if not os.path.isabs(path_part) and not path_part.startswith('/'):
+                    abs_db_path = os.path.abspath(os.path.join(BASE_DIR, path_part)).replace('\\', '/')
+                    db_url = f"sqlite:///{abs_db_path}"
     else:
-        db_url = DEFAULT_SQLITE_URI
+        db_url = "" if is_serverless else DEFAULT_SQLITE_URI
 
     SQLALCHEMY_DATABASE_URI = db_url
     SQLALCHEMY_TRACK_MODIFICATIONS = False

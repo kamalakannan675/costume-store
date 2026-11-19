@@ -179,10 +179,10 @@ class OnlineDeploymentTestCase(unittest.TestCase):
     # 3. DATABASE URL NORMALIZATION & POSTGRESQL READINESS
     # --------------------------------------------------------------------------
     def test_03_database_url_normalization(self):
-        """Verify postgres:// is correctly normalized to postgresql:// and sslmode=require is enforced."""
+        """Verify postgres:// is correctly normalized to postgresql+psycopg2:// and sslmode=require is enforced."""
         raw = "postgres://usr:pwd@db-host.com:5432/costumedb"
         normalized = normalize_database_url(raw)
-        self.assertEqual(normalized, "postgresql://usr:pwd@db-host.com:5432/costumedb?sslmode=require")
+        self.assertEqual(normalized, "postgresql+psycopg2://usr:pwd@db-host.com:5432/costumedb?sslmode=require")
 
     # --------------------------------------------------------------------------
     # 4. ZERO REFERENCE TO OFFLINE DATABASE
@@ -559,14 +559,14 @@ class OnlineDeploymentTestCase(unittest.TestCase):
     # --------------------------------------------------------------------------
     def test_18_neon_postgresql_url_and_ssl(self):
         """Verify Neon PostgreSQL URL handling, sslmode enforcement and serverless pooling."""
-        # 1. normalize_database_url postgres: -> postgresql: and sslmode=require
+        # 1. normalize_database_url postgres: -> postgresql+psycopg2: and sslmode=require
         neon_raw = "postgres://alex:secret123@ep-sweet-glade-a2z.us-east-2.aws.neon.tech/neondb"
         normalized = normalize_database_url(neon_raw)
-        self.assertTrue(normalized.startswith("postgresql://"))
+        self.assertTrue(normalized.startswith("postgresql+psycopg2://"))
         self.assertIn("sslmode=require", normalized)
 
         # 2. Preserves already present sslmode
-        neon_with_ssl = "postgresql://alex:secret123@ep-sweet-glade-a2z.us-east-2.aws.neon.tech/neondb?sslmode=require"
+        neon_with_ssl = "postgresql+psycopg2://alex:secret123@ep-sweet-glade-a2z.us-east-2.aws.neon.tech/neondb?sslmode=require"
         normalized_ssl = normalize_database_url(neon_with_ssl)
         self.assertEqual(normalized_ssl.count("sslmode=require"), 1)
 
@@ -648,6 +648,79 @@ class OnlineDeploymentTestCase(unittest.TestCase):
         self.assertEqual(res_health.status_code, 200)
         data = json.loads(res_health.data)
         self.assertEqual(data.get('status'), 'healthy')
+
+    # --------------------------------------------------------------------------
+    # 21. VERCEL SERVERLESS RUNTIME READ-ONLY FILESYSTEM RESILIENCE
+    # --------------------------------------------------------------------------
+    def test_21_vercel_simulated_import_no_instance_mkdir(self):
+        """Verify config.py in Vercel mode disables SQLite, avoids mkdir(/var/task/instance), and uses /tmp."""
+        import importlib
+        import config
+
+        os.environ['VERCEL'] = '1'
+        try:
+            importlib.reload(config)
+            self.assertTrue(config.is_serverless, "config.is_serverless must be True in Vercel environment")
+            self.assertEqual(config.DEFAULT_SQLITE_URI, "", "DEFAULT_SQLITE_URI must be empty in serverless to prevent SQLite fallback")
+            
+            # Temporary directory helper
+            tmp = config.get_temp_dir()
+            self.assertTrue(tmp.startswith('/tmp') or 'tmp' in tmp, "get_temp_dir() must provide an ephemeral writable path")
+        finally:
+            os.environ.pop('VERCEL', None)
+            importlib.reload(config)
+
+    # --------------------------------------------------------------------------
+    # 22. PRODUCTION SAFE FAILURE ON MISSING DATABASE_URL
+    # --------------------------------------------------------------------------
+    def test_22_production_missing_database_url_fails_safely(self):
+        """Verify ProductionConfig.validate() rejects missing DATABASE_URL with a clear diagnostic."""
+        from config import ProductionConfig
+        with self.assertRaises(RuntimeError) as cm:
+            ProductionConfig.validate(
+                database_url="",
+                secret_key="a" * 32
+            )
+        self.assertIn("DATABASE_URL is missing in production", str(cm.exception))
+        self.assertIn("Neon", str(cm.exception))
+
+    # --------------------------------------------------------------------------
+    # 23. LOCAL SQLITE DEVELOPMENT PRESERVED
+    # --------------------------------------------------------------------------
+    def test_23_local_development_sqlite_preserved(self):
+        """Verify local development preserves SQLite default URI and local instance directory."""
+        import importlib
+        import config
+
+        os.environ.pop('VERCEL', None)
+        os.environ.pop('AWS_LAMBDA_FUNCTION_NAME', None)
+        importlib.reload(config)
+
+        self.assertFalse(config.is_serverless)
+        self.assertTrue(config.DEFAULT_SQLITE_URI.startswith("sqlite:///"))
+        self.assertIn("instance/costume_store.db", config.DEFAULT_SQLITE_URI.replace('\\', '/'))
+
+    # --------------------------------------------------------------------------
+    # 24. SERVERLESS READ-ONLY STORAGE SAFETY
+    # --------------------------------------------------------------------------
+    def test_24_serverless_storage_read_only_safety(self):
+        """Verify storage_service fails safely with diagnostic when S3 is unconfigured in serverless."""
+        from storage_service import StorageService, ReadOnlyDisabledStorageBackend
+        dummy_app = type('DummyApp', (), {'config': {'STORAGE_BACKEND': 'local', 'UPLOAD_FOLDER': '/var/task/static/uploads'}, 'logger': app.logger})()
+        
+        os.environ['VERCEL'] = '1'
+        try:
+            svc = StorageService()
+            svc.init_app(dummy_app)
+            self.assertIsInstance(svc.backend, ReadOnlyDisabledStorageBackend)
+
+            # Upload attempt raises descriptive RuntimeError without writing to disk
+            mock_file = type('MockFile', (), {'filename': 'test.jpg', 'content_type': 'image/jpeg', 'content_length': 100, 'seek': lambda pos: None, 'read': lambda: b'bytes'})()
+            with self.assertRaises(RuntimeError) as cm:
+                svc.save_image(mock_file)
+            self.assertIn("External persistent storage (S3/R2) is not configured", str(cm.exception))
+        finally:
+            os.environ.pop('VERCEL', None)
 
 
 if __name__ == '__main__':

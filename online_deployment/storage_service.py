@@ -35,7 +35,12 @@ class LocalStorageBackend(StorageBackend):
     """Local filesystem storage backend."""
     def __init__(self, upload_folder: str):
         self.upload_folder = os.path.abspath(upload_folder)
-        os.makedirs(self.upload_folder, exist_ok=True)
+        is_serverless = bool(os.environ.get('VERCEL') or os.environ.get('AWS_LAMBDA_FUNCTION_NAME'))
+        if not is_serverless:
+            try:
+                os.makedirs(self.upload_folder, exist_ok=True)
+            except OSError:
+                pass
 
     def save(self, file_storage, filename: str) -> str:
         safe_name = secure_filename(filename)
@@ -63,6 +68,18 @@ class LocalStorageBackend(StorageBackend):
                 return True
             except OSError:
                 return False
+        return False
+
+
+class ReadOnlyDisabledStorageBackend(StorageBackend):
+    """Safe fallback backend when external storage is unconfigured in a serverless read-only environment."""
+    def save(self, file_storage, filename: str) -> str:
+        raise RuntimeError(
+            "Product image upload failed: External persistent storage (S3/R2) is not configured in this serverless deployment. "
+            "Please configure S3_BUCKET_NAME, S3_ACCESS_KEY_ID, and S3_SECRET_ACCESS_KEY in your Vercel Project Settings."
+        )
+
+    def delete(self, file_url: str) -> bool:
         return False
 
 
@@ -132,16 +149,24 @@ class StorageService:
             self.init_app(app)
 
     def init_app(self, app):
+        is_serverless = bool(os.environ.get('VERCEL') or os.environ.get('AWS_LAMBDA_FUNCTION_NAME'))
         backend_type = app.config.get('STORAGE_BACKEND', 'local').lower()
         if backend_type == 's3':
             bucket = app.config.get('S3_BUCKET_NAME')
             key = app.config.get('S3_ACCESS_KEY_ID')
             secret = app.config.get('S3_SECRET_ACCESS_KEY')
             if not bucket or not key or not secret:
-                app.logger.warning(
-                    "STORAGE_BACKEND is set to 's3' but credentials are incomplete. Falling back to local storage."
-                )
-                self.backend = LocalStorageBackend(app.config['UPLOAD_FOLDER'])
+                if is_serverless:
+                    app.logger.warning(
+                        "STORAGE_BACKEND is 's3' but S3 credentials are not configured in Vercel. "
+                        "Admin image uploads will fail safely until S3/R2 credentials are set."
+                    )
+                    self.backend = ReadOnlyDisabledStorageBackend()
+                else:
+                    app.logger.warning(
+                        "STORAGE_BACKEND is set to 's3' but credentials are incomplete. Falling back to local storage."
+                    )
+                    self.backend = LocalStorageBackend(app.config['UPLOAD_FOLDER'])
             else:
                 self.backend = S3StorageBackend(
                     bucket_name=bucket,
@@ -152,7 +177,14 @@ class StorageService:
                     public_url_prefix=app.config.get('S3_PUBLIC_URL_PREFIX')
                 )
         else:
-            self.backend = LocalStorageBackend(app.config['UPLOAD_FOLDER'])
+            if is_serverless:
+                app.logger.warning(
+                    "STORAGE_BACKEND is 'local' in a serverless environment with a read-only filesystem. "
+                    "Admin image uploads will fail safely until S3/R2 is configured."
+                )
+                self.backend = ReadOnlyDisabledStorageBackend()
+            else:
+                self.backend = LocalStorageBackend(app.config['UPLOAD_FOLDER'])
 
     def validate_image_file(self, file_storage) -> tuple[bool, str]:
         """Validate filename, extension, and content type."""

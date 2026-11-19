@@ -76,7 +76,12 @@ active_config = get_config()
 app.config.from_object(active_config)
 ALLOWED_EXTENSIONS = app.config.get('ALLOWED_EXTENSIONS', {'png', 'jpg', 'jpeg', 'webp', 'gif'})
 
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+is_serverless = bool(os.environ.get('VERCEL') or os.environ.get('AWS_LAMBDA_FUNCTION_NAME'))
+if not is_serverless and app.config.get('STORAGE_BACKEND', 'local') == 'local':
+    try:
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    except OSError:
+        pass
 db.init_app(app)
 storage_service.init_app(app)
 
