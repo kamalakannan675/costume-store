@@ -58,6 +58,16 @@ def mask_connection_url(url: str) -> str:
     return url
 
 
+def _clean_credential(val: str) -> str:
+    """Safely strip whitespace, carriage returns, and enclosing quotes."""
+    if not val:
+        return ''
+    s = str(val).strip()
+    if (s.startswith('"') and s.endswith('"')) or (s.startswith("'") and s.endswith("'")):
+        s = s[1:-1].strip()
+    return s
+
+
 def get_effective_database_url(cli_target_url: str = None) -> str:
     """Resolves target database connection URL from CLI arguments or environment variables."""
     url = (
@@ -67,7 +77,7 @@ def get_effective_database_url(cli_target_url: str = None) -> str:
         os.environ.get('POSTGRES_URL') or
         os.environ.get('POSTGRES_URL_NON_POOLING')
     )
-    return (url or '').strip()
+    return _clean_credential(url)
 
 
 def validate_target_url_safety(target_url: str):

@@ -31,9 +31,12 @@ This document details all environment variables supported by the Costume Store a
 
 | Variable Name | Required | Default | Description | Example / Recommendations |
 | :--- | :---: | :---: | :--- | :--- |
-| `ADMIN_EMAIL` | Optional | *(None)* | Email of the primary store administrator. | `admin@costumestore.com` |
+| `ADMIN_EMAIL` | Optional | *(None)* | Email of the primary store administrator. Supports fully qualified domains as well as `admin@localhost`. | `admin@costumestore.com` or `admin@localhost` |
 | `ADMIN_NAME` | Optional | `Store Administrator` | Display name of the administrator. | `Kamalakannan R` |
-| `ADMIN_PASSWORD` | Optional | *(None)* | Complex password (min 8 chars, uppercase, lowercase, digit, symbol). | `Admin@Costume2026!` |
+| `ADMIN_PASSWORD` | Optional | *(None)* | Complex password (min 8 chars, uppercase, lowercase, digit, symbol). | `Admin@123` or `Admin@Costume2026!` |
+
+> [!NOTE]
+> When configuring in Vercel Project Settings, enter raw unquoted strings (do not enclose in double or single quotes). If already initialized, credentials can be updated at any time by updating `ADMIN_EMAIL` / `ADMIN_PASSWORD` or via the secure `/api/maintenance/sync-admin` endpoint with `X-Maintenance-Secret`.
 
 ---
 
@@ -41,10 +44,13 @@ This document details all environment variables supported by the Costume Store a
 
 | Variable Name | Required | Default | Description | Example / Recommendations |
 | :--- | :---: | :---: | :--- | :--- |
-| `RAZORPAY_MODE` | No | `test` | Operating gateway mode: `test` or `live`. | `test` (Keep in Test Mode) |
-| `RAZORPAY_KEY_ID` | Optional | `""` | Razorpay Key ID generated in the Razorpay Dashboard. | `rzp_test_...` |
+| `RAZORPAY_MODE` | No | `test` | Operating gateway mode: strictly `test` for testing. | `test` |
+| `RAZORPAY_KEY_ID` | Optional | `""` | Razorpay Key ID generated in the Razorpay Dashboard (begins with `rzp_test_`). | `rzp_test_...` |
 | `RAZORPAY_KEY_SECRET` | Optional | `""` | Razorpay Key Secret for HMAC-SHA256 signature verification. | `AbCdEf123456...` |
 | `RAZORPAY_WEBHOOK_SECRET`| Optional | `""` | Secret configured on `/webhook/razorpay` for webhooks. | `whsec_...` |
+
+> [!IMPORTANT]
+> Ensure `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` are generated from the same Razorpay account and in **Test Mode**. Do not enter quotes around the values in Vercel. Both `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` must be set for online checkout orders.
 
 ---
 

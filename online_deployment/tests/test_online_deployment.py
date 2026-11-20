@@ -824,6 +824,112 @@ class OnlineDeploymentTestCase(unittest.TestCase):
         self.assertGreaterEqual(data['schema_summary']['required_tables_present'], 17)
         # Verify no credentials leaked
         self.assertNotIn('password', str(data).lower())
+        self.assertIn('admin_summary', data)
+        self.assertIn('gateway_diagnostics', data)
+
+    # --------------------------------------------------------------------------
+    # 30. RAZORPAY CREDENTIAL CLEANING & ERROR HANDLING
+    # --------------------------------------------------------------------------
+    def test_30_razorpay_order_creation_and_credential_sanitization(self):
+        """Verify Razorpay credential cleaning, amount checks, and descriptive error handling."""
+        from app import _clean_credential, _razorpay_credentials, _create_razorpay_order
+        import urllib.error
+        from unittest.mock import patch
+
+        # 1. Test credential cleaning
+        self.assertEqual(_clean_credential('"rzp_test_12345"'), 'rzp_test_12345')
+        self.assertEqual(_clean_credential("'rzp_test_12345'"), 'rzp_test_12345')
+        self.assertEqual(_clean_credential('  rzp_test_12345  \r\n'), 'rzp_test_12345')
+
+        # 2. Test minimum amount check
+        app.config['RAZORPAY_KEY_ID'] = 'rzp_test_mock_123'
+        app.config['RAZORPAY_KEY_SECRET'] = 'secret_mock_123'
+        with self.assertRaises(RuntimeError) as ctx_min:
+            _create_razorpay_order(50, 'receipt-001')
+        self.assertIn('at least ₹1.00', str(ctx_min.exception))
+
+        # 3. Test HTTP 401 error message clarity
+        mock_http_err = urllib.error.HTTPError(
+            url='https://api.razorpay.com/v1/orders',
+            code=401,
+            msg='Unauthorized',
+            hdrs={},
+            fp=io.BytesIO(b'{"error": {"code": "BAD_REQUEST_ERROR", "description": "The id provided does not exist"}}')
+        )
+        with patch('urllib.request.urlopen', side_effect=mock_http_err):
+            with self.assertRaises(RuntimeError) as ctx_auth:
+                _create_razorpay_order(10000, 'receipt-001')
+            self.assertIn('Razorpay authentication failed', str(ctx_auth.exception))
+            self.assertIn('RAZORPAY_KEY_ID', str(ctx_auth.exception))
+
+    # --------------------------------------------------------------------------
+    # 31. ADMIN LOCALHOST SYNCHRONIZATION AND LOGIN WORKFLOW
+    # --------------------------------------------------------------------------
+    def test_31_admin_localhost_sync_and_login_flow(self):
+        """Verify admin@localhost / Admin@123 provisions cleanly in production and can log in."""
+        # Provision admin with admin@localhost and Admin@123 under simulated production
+        os.environ['VERCEL'] = '1'
+        os.environ['ADMIN_EMAIL'] = 'admin@localhost'
+        os.environ['ADMIN_PASSWORD'] = 'Admin@123'
+        os.environ['ADMIN_NAME'] = 'Store Administrator'
+
+        admin = sync_admin_from_env(app)
+        self.assertIsNotNone(admin)
+        self.assertEqual(admin.email, 'admin@localhost')
+        self.assertTrue(admin.is_admin)
+        self.assertTrue(admin.check_password('Admin@123'))
+
+        # Test login via POST /login
+        res_login = self.client.post('/login', data={
+            'email': 'admin@localhost',
+            'password': 'Admin@123'
+        }, follow_redirects=False)
+
+        self.assertEqual(res_login.status_code, 302)
+        self.assertIn('/admin', res_login.headers.get('Location', ''))
+
+        # Follow to dashboard
+        res_dash = self.client.get(res_login.headers.get('Location'))
+        self.assertEqual(res_dash.status_code, 200)
+        self.assertIn(b'Admin Dashboard', res_dash.data)
+
+        # Cleanup env vars
+        os.environ.pop('VERCEL', None)
+        os.environ.pop('ADMIN_EMAIL', None)
+        os.environ.pop('ADMIN_PASSWORD', None)
+        os.environ.pop('ADMIN_NAME', None)
+
+    # --------------------------------------------------------------------------
+    # 32. MAINTENANCE SYNC-ADMIN ENDPOINT
+    # --------------------------------------------------------------------------
+    def test_32_maintenance_sync_admin_and_gateway_diagnostics(self):
+        """Verify /api/maintenance/sync-admin creates and updates admin securely."""
+        valid_secret = app.config['SECRET_KEY']
+
+        # Unauthorized request -> 401
+        res_unauth = self.client.post('/api/maintenance/sync-admin')
+        self.assertEqual(res_unauth.status_code, 401)
+
+        # Authorized sync with payload
+        res_sync = self.client.post(
+            '/api/maintenance/sync-admin',
+            headers={'X-Maintenance-Secret': valid_secret},
+            json={
+                'email': 'superadmin@costumestore.com',
+                'password': 'SuperAdmin@2026!',
+                'name': 'Chief Administrator'
+            }
+        )
+        self.assertEqual(res_sync.status_code, 200)
+        data = json.loads(res_sync.data)
+        self.assertEqual(data.get('status'), 'success')
+        self.assertEqual(data['admin']['email'], 'superadmin@costumestore.com')
+        self.assertTrue(data['admin']['is_admin'])
+
+        # Verify DB record updated
+        updated_admin = User.query.filter_by(is_admin=True).first()
+        self.assertEqual(updated_admin.email, 'superadmin@costumestore.com')
+        self.assertTrue(updated_admin.check_password('SuperAdmin@2026!'))
 
 
 if __name__ == '__main__':

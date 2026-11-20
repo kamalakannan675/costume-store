@@ -43,6 +43,16 @@ def parse_bool(val, default=False):
     return default
 
 
+def _clean_credential(val: str) -> str:
+    """Safely strip whitespace, carriage returns, and enclosing quotes from environment variables."""
+    if not val:
+        return ''
+    s = str(val).strip()
+    if (s.startswith('"') and s.endswith('"')) or (s.startswith("'") and s.endswith("'")):
+        s = s[1:-1].strip()
+    return s
+
+
 def normalize_database_url(url: str) -> str:
     """
     Normalizes PostgreSQL database URLs for SQLAlchemy 2.x and psycopg2.
@@ -69,8 +79,8 @@ def normalize_database_url(url: str) -> str:
 
 class Config:
     """Base application configuration for Costume Store online deployment (Vercel + Neon)."""
-    SECRET_KEY = os.environ.get('FLASK_SECRET_KEY', '').strip()
-    OTP_SECRET_KEY = os.environ.get('OTP_SECRET_KEY', '').strip()
+    SECRET_KEY = _clean_credential(os.environ.get('FLASK_SECRET_KEY') or os.environ.get('SECRET_KEY'))
+    OTP_SECRET_KEY = _clean_credential(os.environ.get('OTP_SECRET_KEY'))
 
     # Database Configuration (Neon PostgreSQL in production or local SQLite fallback)
     raw_db_url = (
@@ -133,10 +143,10 @@ class Config:
     SESSION_COOKIE_SECURE = False
 
     # Razorpay Payment Gateway Credentials (Strictly Test Mode by default)
-    RAZORPAY_MODE = os.environ.get('RAZORPAY_MODE', 'test').strip().lower()
-    RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID', '').strip()
-    RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', '').strip()
-    RAZORPAY_WEBHOOK_SECRET = os.environ.get('RAZORPAY_WEBHOOK_SECRET', '').strip()
+    RAZORPAY_MODE = _clean_credential(os.environ.get('RAZORPAY_MODE') or 'test').lower()
+    RAZORPAY_KEY_ID = _clean_credential(os.environ.get('RAZORPAY_KEY_ID'))
+    RAZORPAY_KEY_SECRET = _clean_credential(os.environ.get('RAZORPAY_KEY_SECRET'))
+    RAZORPAY_WEBHOOK_SECRET = _clean_credential(os.environ.get('RAZORPAY_WEBHOOK_SECRET'))
 
     # SMTP / Mail Server Configuration
     MAIL_SERVER = (os.environ.get('MAIL_SERVER') or os.environ.get('SMTP_HOST') or 'smtp.gmail.com').strip()
@@ -160,9 +170,9 @@ class Config:
     SMTP_USE_TLS = MAIL_USE_TLS
 
     # Administrator Environment Configuration
-    ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', '').strip().lower()
-    ADMIN_NAME = (os.environ.get('ADMIN_NAME') or 'Store Administrator').strip()
-    ADMIN_PASSWORD = (os.environ.get('ADMIN_PASSWORD') or os.environ.get('ADMIN_PASSWROD') or '').strip()
+    ADMIN_EMAIL = _clean_credential(os.environ.get('ADMIN_EMAIL')).lower()
+    ADMIN_NAME = _clean_credential(os.environ.get('ADMIN_NAME')) or 'Store Administrator'
+    ADMIN_PASSWORD = _clean_credential(os.environ.get('ADMIN_PASSWORD') or os.environ.get('ADMIN_PASSWROD'))
 
 
 class DevelopmentConfig(Config):
@@ -177,9 +187,14 @@ class ProductionConfig(Config):
     SESSION_COOKIE_SAMESITE = 'Lax'
 
     # Production secrets: NO default fallback to insecure development keys
-    SECRET_KEY = os.environ.get('FLASK_SECRET_KEY')
+    SECRET_KEY = _clean_credential(os.environ.get('FLASK_SECRET_KEY') or os.environ.get('SECRET_KEY'))
 
-    raw_db_url = os.environ.get('DATABASE_URL', '').strip()
+    raw_db_url = _clean_credential(
+        os.environ.get('DATABASE_URL') or
+        os.environ.get('POSTGRES_URL') or
+        os.environ.get('POSTGRES_URL_NON_POOLING') or
+        os.environ.get('TARGET_DATABASE_URL')
+    )
     SQLALCHEMY_DATABASE_URI = normalize_database_url(raw_db_url)
 
     @classmethod
@@ -188,7 +203,7 @@ class ProductionConfig(Config):
         errors = []
 
         # 1. Secret Key validation
-        secret = (secret_key if secret_key is not None else os.environ.get('FLASK_SECRET_KEY', '')).strip()
+        secret = (secret_key if secret_key is not None else (os.environ.get('FLASK_SECRET_KEY') or os.environ.get('SECRET_KEY') or '')).strip()
         if not secret:
             errors.append(
                 "FLASK_SECRET_KEY environment variable is missing. A cryptographically secure random key (>= 32 chars) is required."

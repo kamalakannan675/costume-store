@@ -103,6 +103,16 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+def _clean_credential(val: str) -> str:
+    """Safely strip whitespace, carriage returns, and enclosing quotes from environment variables."""
+    if not val:
+        return ''
+    s = str(val).strip()
+    if (s.startswith('"') and s.endswith('"')) or (s.startswith("'") and s.endswith("'")):
+        s = s[1:-1].strip()
+    return s
+
+
 def valid_password(password):
     return (
         len(password or '') >= 8 and
@@ -169,21 +179,24 @@ def create_or_update_admin(email, password, name="Store Administrator", phone=No
     Programmatic helper to create or update an administrator account.
     Enforces password complexity requirements.
     """
+    email = _clean_credential(email).lower()
+    name = _clean_credential(name) or "Store Administrator"
+    password = _clean_credential(password)
+
     if not email or '@' not in email:
         raise ValueError("Valid admin email is required.")
-    if not name or len(name.strip()) < 2:
-        raise ValueError("Admin name must be at least 2 characters.")
+    if len(name.strip()) < 2:
+        name = "Store Administrator"
     if not valid_password(password):
         raise ValueError("Password does not satisfy complexity requirements (min 8 chars, uppercase, lowercase, digit, special character).")
 
-    email = email.strip().lower()
-    name = name.strip()
-
+    # Check if this email matches an existing user
     admin = User.query.filter_by(email=email).first()
     if admin:
         admin.name = name
         admin.set_password(password)
         admin.is_admin = True
+        admin.is_verified = True
         if phone:
             admin.phone = phone
         if address:
@@ -191,6 +204,22 @@ def create_or_update_admin(email, password, name="Store Administrator", phone=No
         db.session.commit()
         return admin
 
+    # Check if there is an existing admin with another email to rebind
+    existing_admin = User.query.filter_by(is_admin=True).first()
+    if existing_admin:
+        existing_admin.email = email
+        existing_admin.name = name
+        existing_admin.set_password(password)
+        existing_admin.is_admin = True
+        existing_admin.is_verified = True
+        if phone:
+            existing_admin.phone = phone
+        if address:
+            existing_admin.address = address
+        db.session.commit()
+        return existing_admin
+
+    # Otherwise create brand new administrator
     admin = User(
         name=name,
         email=email,
@@ -213,18 +242,18 @@ def sync_admin_from_env(application=None):
     Never elevates a customer account to administrator.
     Never exposes passwords in logs or error messages.
     """
-    admin_email = (os.environ.get('ADMIN_EMAIL') or '').strip().lower()
-    admin_name = (os.environ.get('ADMIN_NAME') or '').strip()
+    admin_email = _clean_credential(os.environ.get('ADMIN_EMAIL')).lower()
+    admin_name = _clean_credential(os.environ.get('ADMIN_NAME')) or 'Store Administrator'
 
     # Check ADMIN_PASSWORD first, then deprecated alias ADMIN_PASSWROD
-    raw_password = os.environ.get('ADMIN_PASSWORD')
+    raw_password = _clean_credential(os.environ.get('ADMIN_PASSWORD'))
     if not raw_password:
-        alias_password = os.environ.get('ADMIN_PASSWROD')
+        alias_password = _clean_credential(os.environ.get('ADMIN_PASSWROD'))
         if alias_password:
             app.logger.warning("DEPRECATION NOTICE: ADMIN_PASSWROD is deprecated. Please update your environment to use ADMIN_PASSWORD.")
             raw_password = alias_password
 
-    admin_password = (raw_password or '').strip()
+    admin_password = raw_password
 
     # Verify if 'user' table exists before attempting to query it
     try:
@@ -239,26 +268,21 @@ def sync_admin_from_env(application=None):
     # Find existing verified administrator
     existing_admin = User.query.filter_by(is_admin=True).first()
 
-    # Verify if configuration is complete
-    if not admin_email or not admin_name or not admin_password:
+    # Verify if configuration is complete (email and password strictly required; name defaults safely)
+    if not admin_email or not admin_password:
         if existing_admin:
             app.logger.info("Admin environment credentials not fully specified in environment. Preserving existing administrator account.")
             return existing_admin
-        app.logger.error("Admin account provisioning aborted: ADMIN_EMAIL, ADMIN_NAME, and ADMIN_PASSWORD must all be configured with non-empty values. No hardcoded default credentials will ever be used.")
+        app.logger.error("Admin account provisioning aborted: ADMIN_EMAIL and ADMIN_PASSWORD must all be configured with non-empty values. No hardcoded default credentials will ever be used.")
         return None
 
     # Validate email syntax
-    is_prod = (
-        os.environ.get('FLASK_ENV', '').lower() == 'production' or
-        bool(os.environ.get('VERCEL')) or
-        bool(os.environ.get('RENDER'))
-    )
     is_valid_email = False
     if '@' in admin_email:
         local_part, domain_part = admin_email.split('@', 1)
         if local_part and domain_part:
-            if not is_prod and domain_part.lower() == 'localhost':
-                # Local development environment explicitly permits admin@localhost
+            if domain_part.lower() == 'localhost':
+                # Local development or explicit admin configuration permits localhost
                 is_valid_email = True
             elif '.' in domain_part and not domain_part.startswith('.') and not domain_part.endswith('.'):
                 is_valid_email = True
@@ -1099,8 +1123,8 @@ def remove_coupon():
 # ------------------------------------------------------------------------------
 
 def _razorpay_credentials():
-    key_id = (app.config.get('RAZORPAY_KEY_ID') or os.environ.get('RAZORPAY_KEY_ID') or '').strip()
-    key_secret = (app.config.get('RAZORPAY_KEY_SECRET') or os.environ.get('RAZORPAY_KEY_SECRET') or '').strip()
+    key_id = _clean_credential(app.config.get('RAZORPAY_KEY_ID') or os.environ.get('RAZORPAY_KEY_ID'))
+    key_secret = _clean_credential(app.config.get('RAZORPAY_KEY_SECRET') or os.environ.get('RAZORPAY_KEY_SECRET'))
     return key_id, key_secret
 
 
@@ -1108,6 +1132,9 @@ def _create_razorpay_order(amount_paise, receipt):
     key_id, key_secret = _razorpay_credentials()
     if not key_id or not key_secret:
         raise RuntimeError('Razorpay keys are not configured. Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to .env.')
+
+    if int(amount_paise) < 100:
+        raise RuntimeError('Payment amount must be at least ₹1.00 (100 paise).')
 
     payload = json.dumps({
         'amount': int(amount_paise),
@@ -1121,15 +1148,46 @@ def _create_razorpay_order(amount_paise, receipt):
         'https://api.razorpay.com/v1/orders',
         data=payload,
         method='POST',
-        headers={'Authorization': f'Basic {auth}', 'Content-Type': 'application/json'}
+        headers={
+            'Authorization': f'Basic {auth}',
+            'Content-Type': 'application/json',
+            'User-Agent': 'CostumeStore-PaymentClient/1.0'
+        }
     )
     try:
         with urllib.request.urlopen(req, timeout=20) as response:
             return json.loads(response.read().decode('utf-8'))
     except urllib.error.HTTPError as exc:
-        detail = exc.read().decode('utf-8', errors='replace')
-        app.logger.error('Razorpay order creation error: %s', detail)
-        raise RuntimeError('Razorpay could not create the payment order. Please verify your API credentials.')
+        raw_detail = exc.read().decode('utf-8', errors='replace')
+        app.logger.error('Razorpay order creation HTTP %s error: %s', exc.code, raw_detail)
+        error_desc = ''
+        error_code = ''
+        try:
+            err_data = json.loads(raw_detail)
+            err_obj = err_data.get('error', {})
+            error_code = err_obj.get('code', '')
+            error_desc = err_obj.get('description', '')
+        except Exception:
+            pass
+
+        if exc.code == 401:
+            raise RuntimeError(
+                'Razorpay authentication failed: Invalid or inactive API credentials. '
+                'Please verify RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in your Vercel Project Settings.'
+            )
+        elif error_desc:
+            raise RuntimeError(f'Razorpay order creation failed: {error_desc}')
+        else:
+            raise RuntimeError(
+                f'Razorpay could not create the payment order (HTTP {exc.code}). '
+                'Please verify your API credentials and order settings.'
+            )
+    except urllib.error.URLError as exc:
+        app.logger.error('Razorpay gateway connection error: %s', exc)
+        raise RuntimeError(
+            'Unable to connect to Razorpay payment gateway. '
+            'Please check network connectivity or try again in a few moments.'
+        )
 
 
 @app.route('/checkout')
@@ -1565,7 +1623,7 @@ def razorpay_webhook():
     Verifies HMAC-SHA256 signature using dedicated RAZORPAY_WEBHOOK_SECRET on raw payload bytes.
     Ensures idempotent processing, safe state transitions, and avoids duplicate inventory deductions.
     """
-    webhook_secret = (app.config.get('RAZORPAY_WEBHOOK_SECRET') or os.environ.get('RAZORPAY_WEBHOOK_SECRET') or '').strip()
+    webhook_secret = _clean_credential(app.config.get('RAZORPAY_WEBHOOK_SECRET') or os.environ.get('RAZORPAY_WEBHOOK_SECRET'))
     if not webhook_secret:
         app.logger.warning('Razorpay webhook secret not configured. Rejecting webhook.')
         return jsonify({'status': 'ignored', 'reason': 'Webhook secret not configured on server.'}), 400
@@ -3491,12 +3549,39 @@ def maintenance_db_identity():
                     'search_path': 'main'
                 }
 
+        # Check administrator status
+        admin_user = None
+        if 'user' in active_tables:
+            admin_user = User.query.filter_by(is_admin=True).first()
+
+        admin_summary = {
+            'admin_present': admin_user is not None,
+            'admin_email': admin_user.email if admin_user else None,
+            'admin_name': admin_user.name if admin_user else None,
+            'env_admin_email_configured': bool(os.environ.get('ADMIN_EMAIL')),
+            'admin_secret_configured': bool(os.environ.get('ADMIN_PASSWORD') or os.environ.get('ADMIN_PASSWROD')),
+        }
+
+        # Check payment gateway configuration
+        rzp_key_id, rzp_key_secret = _razorpay_credentials()
+        gateway_diagnostics = {
+            'razorpay_configured': bool(rzp_key_id and rzp_key_secret),
+            'key_id_configured': bool(rzp_key_id),
+            'key_id_prefix': (rzp_key_id[:9] + '...') if rzp_key_id else None,
+            'key_id_mode': 'test' if rzp_key_id.startswith('rzp_test_') else ('live' if rzp_key_id.startswith('rzp_live_') else 'unknown') if rzp_key_id else None,
+            'key_secret_configured': bool(rzp_key_secret),
+            'key_secret_length': len(rzp_key_secret) if rzp_key_secret else 0,
+            'configured_mode': (app.config.get('RAZORPAY_MODE') or 'test').lower()
+        }
+
         return jsonify({
             'status': 'success',
             'timestamp': datetime.utcnow().isoformat(),
             'engine': sanitized_engine,
             'env_sources_present': env_sources_present,
             'postgres_identity': pg_info,
+            'admin_summary': admin_summary,
+            'gateway_diagnostics': gateway_diagnostics,
             'schema_summary': {
                 'active_schema': pg_info.get('current_schema'),
                 'active_schema_table_count': len(active_tables),
@@ -3510,6 +3595,65 @@ def maintenance_db_identity():
         }), 200
     except Exception as e:
         app.logger.error(f"Database identity diagnostic error: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e),
+            'error_type': type(e).__name__
+        }), 500
+
+
+@app.route('/api/maintenance/sync-admin', methods=['POST'])
+def maintenance_sync_admin():
+    """
+    Secure maintenance endpoint to synchronize or create the store administrator in production.
+    Requires header 'X-Maintenance-Secret' matching FLASK_SECRET_KEY.
+    Optionally accepts JSON payload with {'email': '...', 'password': '...', 'name': '...'}.
+    If JSON payload is omitted, synchronizes from environment variables (ADMIN_EMAIL, ADMIN_PASSWORD).
+    Never exposes passwords. Returns sanitized confirmation.
+    """
+    secret = app.config.get('SECRET_KEY', '').strip()
+    provided_secret = request.headers.get('X-Maintenance-Secret', '').strip()
+    if not provided_secret:
+        provided_secret = request.args.get('secret', '').strip()
+
+    if not secret or len(secret) < 16 or provided_secret != secret:
+        return jsonify({
+            'status': 'error',
+            'message': 'Unauthorized. Provide valid X-Maintenance-Secret header.'
+        }), 401
+
+    try:
+        data = request.get_json(silent=True) or {}
+        email = _clean_credential(data.get('email') or os.environ.get('ADMIN_EMAIL')).lower()
+        password = _clean_credential(data.get('password') or os.environ.get('ADMIN_PASSWORD') or os.environ.get('ADMIN_PASSWROD'))
+        name = _clean_credential(data.get('name') or os.environ.get('ADMIN_NAME')) or 'Store Administrator'
+
+        if not email or not password:
+            return jsonify({
+                'status': 'error',
+                'message': 'Admin email and password are required (provide in JSON body or set ADMIN_EMAIL / ADMIN_PASSWORD in environment).'
+            }), 400
+
+        if not valid_password(password):
+            return jsonify({
+                'status': 'error',
+                'message': 'Password does not meet complexity requirements (minimum 8 characters with uppercase, lowercase, digit, and special character).'
+            }), 400
+
+        admin = create_or_update_admin(email=email, password=password, name=name)
+        return jsonify({
+            'status': 'success',
+            'message': 'Administrator account synchronized successfully.',
+            'admin': {
+                'id': admin.id,
+                'email': admin.email,
+                'name': admin.name,
+                'is_admin': admin.is_admin,
+                'is_verified': admin.is_verified
+            }
+        }), 200
+    except Exception as e:
+        app.logger.error(f"Maintenance sync-admin error: {e}")
         return jsonify({
             'status': 'error',
             'message': str(e),
