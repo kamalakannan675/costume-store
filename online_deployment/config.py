@@ -73,7 +73,12 @@ class Config:
     OTP_SECRET_KEY = os.environ.get('OTP_SECRET_KEY', '').strip()
 
     # Database Configuration (Neon PostgreSQL in production or local SQLite fallback)
-    raw_db_url = os.environ.get('DATABASE_URL')
+    raw_db_url = (
+        os.environ.get('DATABASE_URL') or
+        os.environ.get('POSTGRES_URL') or
+        os.environ.get('POSTGRES_URL_NON_POOLING') or
+        os.environ.get('TARGET_DATABASE_URL')
+    )
     if raw_db_url and raw_db_url.strip():
         db_url = normalize_database_url(raw_db_url)
         if db_url.startswith('sqlite:///'):
@@ -202,7 +207,14 @@ class ProductionConfig(Config):
             )
 
         # 2. PostgreSQL Database URL validation (Neon PostgreSQL required)
-        db_url = (database_url if database_url is not None else os.environ.get('DATABASE_URL', '')).strip()
+        db_url = (
+            database_url if database_url is not None else (
+                os.environ.get('DATABASE_URL') or
+                os.environ.get('POSTGRES_URL') or
+                os.environ.get('POSTGRES_URL_NON_POOLING') or
+                os.environ.get('TARGET_DATABASE_URL') or ''
+            )
+        ).strip()
         if not db_url:
             errors.append(
                 "DATABASE_URL is missing in production. A PostgreSQL connection URL is required "

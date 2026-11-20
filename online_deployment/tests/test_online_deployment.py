@@ -799,6 +799,32 @@ class OnlineDeploymentTestCase(unittest.TestCase):
         self.assertEqual(ProductVariant.query.count(), var_count_1)
         self.assertEqual(Coupon.query.count(), coup_count_1)
 
+    # --------------------------------------------------------------------------
+    # 29. SAFE DATABASE IDENTITY DIAGNOSTIC ENDPOINT
+    # --------------------------------------------------------------------------
+    def test_29_maintenance_db_identity_diagnostic(self):
+        """Verify /api/maintenance/db-identity requires secret and safely reports schema status."""
+        # Unauthenticated request -> 401
+        res_unauth = self.client.get('/api/maintenance/db-identity')
+        self.assertEqual(res_unauth.status_code, 401)
+
+        # Authenticated request -> 200
+        valid_secret = app.config['SECRET_KEY']
+        res_valid = self.client.get(
+            '/api/maintenance/db-identity',
+            headers={'X-Maintenance-Secret': valid_secret}
+        )
+        self.assertEqual(res_valid.status_code, 200)
+        data = json.loads(res_valid.data)
+        self.assertEqual(data.get('status'), 'success')
+        self.assertIn('engine', data)
+        self.assertIn('postgres_identity', data)
+        self.assertIn('schema_summary', data)
+        self.assertTrue(data['schema_summary']['is_ready'])
+        self.assertGreaterEqual(data['schema_summary']['required_tables_present'], 17)
+        # Verify no credentials leaked
+        self.assertNotIn('password', str(data).lower())
+
 
 if __name__ == '__main__':
     unittest.main()

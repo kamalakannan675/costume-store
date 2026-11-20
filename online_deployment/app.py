@@ -3407,6 +3407,116 @@ def health_check():
     }), http_code
 
 
+@app.route('/api/maintenance/db-identity', methods=['GET'])
+def maintenance_db_identity():
+    """
+    Secure diagnostic endpoint reporting sanitized database identity and schema details.
+    Requires header 'X-Maintenance-Secret' matching FLASK_SECRET_KEY.
+    Never exposes passwords, tokens, full connection strings, or customer data.
+    """
+    secret = app.config.get('SECRET_KEY', '').strip()
+    provided_secret = request.headers.get('X-Maintenance-Secret', '').strip()
+    if not provided_secret:
+        provided_secret = request.args.get('secret', '').strip()
+
+    if not secret or len(secret) < 16 or provided_secret != secret:
+        return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+
+    try:
+        engine = db.engine
+        url = engine.url
+        sanitized_engine = {
+            'drivername': url.drivername,
+            'host': url.host,
+            'port': url.port,
+            'database': url.database,
+            'username': url.username,
+        }
+
+        env_sources_present = [
+            k for k in ['DATABASE_URL', 'POSTGRES_URL', 'POSTGRES_URL_NON_POOLING', 'TARGET_DATABASE_URL']
+            if bool(os.environ.get(k))
+        ]
+
+        with engine.connect() as conn:
+            if url.drivername.startswith(('postgresql', 'postgres')):
+                pg_row = conn.execute(text("""
+                    SELECT 
+                        current_database() AS current_database,
+                        current_user AS current_user,
+                        session_user AS session_user,
+                        current_schema() AS current_schema,
+                        current_schemas(true) AS current_schemas,
+                        current_setting('search_path') AS search_path,
+                        version() AS version
+                """)).mappings().first()
+
+                tables_rows = conn.execute(text("""
+                    SELECT table_schema, table_name 
+                    FROM information_schema.tables 
+                    WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
+                    ORDER BY table_schema, table_name
+                """)).mappings().all()
+
+                tables_by_schema = {}
+                for r in tables_rows:
+                    s = r['table_schema']
+                    t = r['table_name']
+                    if s not in tables_by_schema:
+                        tables_by_schema[s] = []
+                    tables_by_schema[s].append(t)
+
+                current_schema = pg_row['current_schema']
+                active_tables = tables_by_schema.get(current_schema, [])
+                missing_tables = [t for t in REQUIRED_APPLICATION_TABLES if t not in active_tables]
+
+                pg_info = {
+                    'current_database': pg_row['current_database'],
+                    'current_user': pg_row['current_user'],
+                    'session_user': pg_row['session_user'],
+                    'current_schema': pg_row['current_schema'],
+                    'current_schemas': list(pg_row['current_schemas']),
+                    'search_path': pg_row['search_path'],
+                    'version_short': pg_row['version'].split(' on ')[0] if ' on ' in pg_row['version'] else pg_row['version'][:60],
+                }
+            else:
+                inspector = inspect(engine)
+                all_tables = inspector.get_table_names()
+                tables_by_schema = {'main': all_tables}
+                active_tables = all_tables
+                missing_tables = [t for t in REQUIRED_APPLICATION_TABLES if t not in active_tables]
+                pg_info = {
+                    'current_database': url.database or 'sqlite',
+                    'current_schema': 'main',
+                    'search_path': 'main'
+                }
+
+        return jsonify({
+            'status': 'success',
+            'timestamp': datetime.utcnow().isoformat(),
+            'engine': sanitized_engine,
+            'env_sources_present': env_sources_present,
+            'postgres_identity': pg_info,
+            'schema_summary': {
+                'active_schema': pg_info.get('current_schema'),
+                'active_schema_table_count': len(active_tables),
+                'active_schema_tables': active_tables,
+                'tables_by_schema': tables_by_schema,
+                'required_tables_present': len(REQUIRED_APPLICATION_TABLES) - len(missing_tables),
+                'required_tables_total': len(REQUIRED_APPLICATION_TABLES),
+                'missing_tables': missing_tables,
+                'is_ready': len(missing_tables) == 0
+            }
+        }), 200
+    except Exception as e:
+        app.logger.error(f"Database identity diagnostic error: {e}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e),
+            'error_type': type(e).__name__
+        }), 500
+
+
 @app.route('/api/maintenance/init-database', methods=['POST'])
 def maintenance_init_database():
     """
